@@ -1,35 +1,8 @@
-/* Settings & save slots: the assembly of every form in the settings sheet,
-   the character form, the provider test buttons and the save-slot list.
+/* Settings & save slots: the assembly of every form in the settings sheet, the character form, the provider test buttons and the save-slot list */
 
-   Why it lives apart from app.js
-   ------------------------------
-   It was ~630 lines of pure UI assembly inside the orchestrator — the largest
-   single block in the file, and the one place where reading "what does the app
-   do" meant scrolling past every form field. It reads Config and the modules,
-   and writes nothing but Config, so it needs no part of the talk loop.
-
-   Split rules (they are why this could move without touching behaviour):
-     * Generic field primitives (_field / _select / _switch / _range / _title)
-       STAY in app.js — the alarm form and the memory editor use them too.
-     * Calls to those, and to anything else still on App, keep the `App.`
-       prefix; calls between the methods moved here are rewritten to `Settings.`
-     * Only three entry points are public: buildSettings / buildCharaForm /
-       _renderSlots. App keeps thin delegates under the same names, so callers
-       (including scripts/boot_smoke.js) did not have to change.
-
-   Load order: this file must come before app.js in index.html — the bodies
-   reference App at call time, but App's delegates reference Settings at load
-   time.
-*/
 (function (global) {
   'use strict';
 
-  /* localStorage key for the three save slots.
-     This line is the whole fix for "why can't I save and load data": when the
-     forms moved out of app.js, the *uses* came along and the *declaration*
-     stayed behind, so both slot helpers threw ReferenceError inside a
-     `catch (e) {}` — the list always rendered empty and every write vanished
-     while the toast still said "Saved". app.js no longer declares it. */
   var SAVE_KEY = 'ryza.saves.v1';
 
   var Settings = {
@@ -71,7 +44,7 @@
         function (v) { Config.set('llm.apiKey', v); },
         { password: true, hint: T('settings.apiKey.hint') });
       App._field(w, T('settings.temp'), Config.section('llm').temperature,
-        function (v) { Config.set('llm.temperature', parseFloat(v) || 0.9); });
+        function (v) { Config.set('llm.temperature', parseFloat(v) || 1.2); });
       App._field(w, T('settings.maxTokens'), Config.section('llm').maxTokens,
         function (v) { Config.set('llm.maxTokens', Math.max(64, parseInt(v, 10) || 400)); });
       App._field(w, T('settings.historyTurns'), Config.section('llm').historyTurns,
@@ -87,13 +60,7 @@
         { v: 'off', t: T('settings.thinking.off') },
         { v: 'on', t: T('settings.thinking.on') }
       ], function (v) { Config.set('llm.thinking', v); });
-      var effort = (window.Api && Api.normalizeEffort)
-        ? Api.normalizeEffort(Config.section('llm').thinkingEffort)
-        : (Config.section('llm').thinkingEffort || 'default');
-      /* The choice list and the validation come from the registry's own
-         vocabulary (Api.EFFORT_UI), not from a literal. The copy that used to
-         live here clamped any level added there back to 'default', so a new
-         level existed everywhere except in the picker. */
+      var effort = (window.Api && Api.normalizeEffort) ? Api.normalizeEffort(Config.section('llm').thinkingEffort) : (Config.section('llm').thinkingEffort || 'default');
       var effortChoices = Api.EFFORT_UI;
       if (effort === 'xhigh') effort = 'max';
       if (effortChoices.indexOf(effort) === -1) effort = 'default';
@@ -184,9 +151,6 @@
           function (v) { Config.set('tts.fishBaseUrl', v); },
           { hint: T('settings.fishBaseHint'),
             suggestions: ['https://api.fish.audio'], list: 'fish-base-list' });
-        /* Which surface the field currently resolves to. Two things share the
-           name "Fish Audio" and their keys are not interchangeable, so the
-           settings page says out loud where the next request will go. */
         var fsurf = document.createElement('div');
         fsurf.className = 'hint';
         fsurf.textContent = T('settings.fishSurface') + ': ' +
@@ -240,9 +204,6 @@
           { v: 'off', t: T('settings.ttsMode.off') }
         ], function (v) { Config.set('tts.mode', v); Settings.buildSettings(); });
       } else if (Providers.isLocal(Config.section('tts').provider)) {
-        /* Local engines: no key, no model — an engine URL and a style id.
-           VOICEVOX and AivisSpeech share this shape (one implementation in
-           providers.js), so the form is written once from the row. */
         var lrow = Providers.get(Config.section('tts').provider);
         App._field(w, T('settings.baseUrl'),
           Config.section('tts')[lrow.creds.baseUrl.split('.').pop()],
@@ -318,6 +279,7 @@
       App._range(w, T('vol.se'), (Config.section('audio') || {}).se, function (v) {
         Config.set('audio.se', v);
       });
+      
       /* talk speed: the official sheet is icon pills, not a raw ms input. */
       var sp = document.createElement('div');
       sp.className = 'field';
@@ -344,31 +306,23 @@
         function (v) { Config.set('app.voice', v); if (App._syncVoicePill) App._syncVoicePill(); });
       App._switch(w, T('settings.bubble'), Config.section('app').showBubble !== false,
         function (v) { Config.set('app.showBubble', v); });
-      /* 模型给了「译文：」行时，面板是否同时显示她的原句。
-         关掉 = 只显示译文（语音照旧读原句）。 */
       App._switch(w, T('settings.showOriginal'), Config.section('app').showOriginal !== false,
         function (v) { Config.set('app.showOriginal', v); });
       App._switch(w, T('settings.vibration'), Config.section('app').vibration,
         function (v) { Config.set('app.vibration', v); });
       App._switch(w, T('settings.rim'), Config.section('app').rim !== false,
         function (v) { Config.set('app.rim', v); });
-      /* NSFW 是「用户授权」，不是角色扮演开关：关着的时候模型说什么都不脱。
-         闸门在 nsfw.js，这里只管写 Config.app.nsfwEnabled。
-         设置页要能在无宿主环境下独立加载，所以先问 window。 */
-      App._switch(w, T('settings.nsfw'), !!(window.Nsfw && Nsfw.enabled()),
-        function (v) { if (window.Nsfw) Nsfw.setEnabled(v); });
+
+      /* NSFW/undress is always enabled — switch removed */
       App._switch(w, T('settings.stt'), Config.section('app').stt !== 'off',
         function (v) {
-          /* 'on' going forward; an old save holding 'webSpeech' also means on,
-             so no migration is needed — only 'off' is off. */
+
           Config.set('app.stt', v ? 'on' : 'off');
           if (window.Voice && !v) Voice.stop();
           if (App._setupMic) App._setupMic();
           App._syncMic();
         });
-      /* Which engine, and where the transcription goes. The endpoint is its own
-         field set (provider registry row kind 'stt'), exactly like TTS, so
-         pointing it at a new host cannot carry the old key along. */
+
       if (window.Providers && window.Stt) {
         App._select(w, T('settings.stt.engine'), Config.section('stt').engine || 'auto', [
           { v: 'auto', t: T('settings.stt.engine.auto') },
@@ -401,8 +355,7 @@
         function (v) { Config.set('app.autoSend', !!v); });
       App._switch(w, T('settings.bargeIn'), !!Config.section('app').bargeIn,
         function (v) { Config.set('app.bargeIn', !!v); App._syncBargeIn(); });
-      /* The caveat is the reason this is off by default, so it has to be
-         readable in the UI, not only in the source. */
+
       var bargeBox = document.createElement('div');
       bargeBox.className = 'field';
       var bargeHint = document.createElement('div');
@@ -410,9 +363,7 @@
       bargeHint.textContent = T('settings.bargeInHint');
       bargeBox.appendChild(bargeHint);
       w.appendChild(bargeBox);
-      /* How often the other islanders join in. Four levels, each one a single
-         instruction line in the prompt (see the FREQ table in web/js/npc.js).
-         The roster itself comes from the world data, never from here. */
+
       App._select(w, T('settings.npcFreq'), Config.section('app').npcFrequency || 'normal', [
         { v: 'restrained', t: T('settings.npcFreq.restrained') },
         { v: 'normal', t: T('settings.npcFreq.normal') },
@@ -423,8 +374,8 @@
       /* ---------------- time passage (official drove it from AppServerClock) */
       App._title(w, T('settings.time'));
       App._select(w, T('settings.timeMode'), Config.section('app').timeMode || 'real', [
-        { v: 'real',   t: T('time.real') },
-        { v: 'flow',   t: T('time.flow') },
+        { v: 'real', t: T('time.real') },
+        { v: 'flow', t: T('time.flow') },
         { v: 'manual', t: T('time.manual') }
       ], function (v) {
         Config.set('app.timeMode', v);
@@ -448,21 +399,106 @@
         });
       }
 
-      /* ---------------- game balance / cheat (user-side replacement for
-         the official paywall: limits stay, but can be switched off freely) */
+      /* ─── GAME BALANCE / CHEAT ────────────────────────────────────────
+           Made by 青月 · 青月出品，必属精品
+      */
       App._title(w, T('settings.cheat'));
       var cheatHint = document.createElement('div');
       cheatHint.className = 'hint';
-      cheatHint.textContent = T('cheat.desc');
+      cheatHint.textContent = T('cheat.masterDesc');
       w.appendChild(cheatHint);
-      App._switch(w, T('cheat.title') + (Config.section('app').cheat ? ' 🍎∞' : ''),
-        Config.section('app').cheat,
-        function (v) {
-          Config.set('app.cheat', v);
-          App.toast(v ? T('cheat.on') : T('cheat.off'));
-          App.refreshHud();
-          Settings.buildSettings();
+
+      /* Wrapper — built ONCE, never destroyed.*/
+      var _cheatWrapper = document.createElement('div');
+      _cheatWrapper.className = 'cheat-section';
+      w.appendChild(_cheatWrapper);
+
+      var _CE  = window.CheatEngine;
+      var _raw = _CE ? _CE.raw() : {};
+      var _masterOn = !!_raw.master || !!Config.section('app').cheat;
+
+      /* Inject badge styles once (idempotent) */
+      if (!document.getElementById('cheat-badge-style')) {
+        var _bs = document.createElement('style');
+        _bs.id = 'cheat-badge-style';
+        _bs.textContent = [
+          '.cheat-badge{display:inline-flex;align-items:center;justify-content:center;',
+          'width:28px;height:28px;border-radius:50%;font-size:15px;font-weight:700;',
+          'flex-shrink:0;transition:background .25s,color .25s;}',
+          '.cheat-badge--on{background:rgba(59,130,246,.2);color:#3b82f6;border:2px solid #3b82f6;}',
+          '.cheat-badge--off{background:rgba(255,255,255,.07);color:#666;border:2px solid #444;}'
+        ].join('');
+        document.head.appendChild(_bs);
+      }
+
+      /* ── Sub-feature panel (built once) ── */
+      var _subPanel = document.createElement('div');
+      _subPanel.className = 'cheat-panel';
+
+      var _SUBS = [
+        { key: 'freeBuy', icon: '🛍️',  label: T('cheat.freeBuy'), hint: T('cheat.freeBuyDesc') },
+        { key: 'freeQuest', icon: '🎯', label: T('cheat.freeQuest'), hint: T('cheat.freeQuestDesc') },
+        { key: 'unlimCurrency', icon: '💰', label: T('cheat.unlimCurrency'), hint: T('cheat.unlimCurrencyDesc') },
+        { key: 'unlimStamina', icon: '🍎', label: T('cheat.unlimStamina'), hint: T('cheat.unlimStaminaDesc') },
+        { key: 'maxLevel', icon: '⭐', label: T('cheat.maxLevel'), hint: T('cheat.maxLevelDesc') },
+        { key: 'unlockMap', icon: '🗺️', label: T('cheat.unlockMap'), hint: T('cheat.unlockMapDesc') },
+        { key: 'others', icon: '✨', label: T('cheat.others'), hint: T('cheat.othersDesc') }
+      ];
+
+      var _subBadges = []; /* refs to status badge spans per sub-feature */
+
+      _SUBS.forEach(function (sub) {
+        var row = document.createElement('div');
+        row.className = 'cheat-row';
+        var lbl = document.createElement('div');
+        lbl.className = 'cheat-lbl';
+        lbl.innerHTML = '<b>' + sub.icon + ' ' + sub.label + '</b><span>' + sub.hint + '</span>';
+        row.appendChild(lbl);
+        var badge = document.createElement('span');
+        badge.className = _masterOn ? 'cheat-badge cheat-badge--on' : 'cheat-badge cheat-badge--off';
+        badge.textContent = _masterOn ? '✔' : '✕';
+        row.appendChild(badge);
+        _subPanel.appendChild(row);
+        _subBadges.push({ badge: badge, row: row, key: sub.key });
+      });
+
+      /* Lock note (shown only when master is off) */
+      var _lockNote = document.createElement('p');
+      _lockNote.className = 'cheat-lock-note';
+      _lockNote.textContent = T('cheat.lockNote');
+      _subPanel.appendChild(_lockNote);
+
+      /* ── Update badge visuals + auto-activate/deactivate all subs with master ── */
+      function _applyMasterState(on) {
+        _subPanel.classList.toggle('cheat-disabled', !on);
+        _lockNote.style.display = on ? 'none' : 'block';
+        _subBadges.forEach(function (ref) {
+          ref.row.classList.toggle('cheat-sub-disabled', !on);
+          ref.badge.className = on ? 'cheat-badge cheat-badge--on' : 'cheat-badge cheat-badge--off';
+          ref.badge.textContent = on ? '✔' : '✕';
+          if (_CE) _CE.setSub(ref.key, on);
         });
+      }
+      _applyMasterState(_masterOn);
+
+      /* ── Master toggle (built once, appended first) ── */
+      App._switch(_cheatWrapper,
+        T('cheat.master') + (_masterOn ? ' 🔓' : ' 🔒'),
+        _masterOn,
+        function (v) {
+          if (_CE) _CE.setMaster(v);
+          Config.set('app.cheat', v);
+          /* Update master label text */
+          var lbl = _cheatWrapper.querySelector('.switch-label');
+          if (lbl) lbl.textContent = T('cheat.master') + (v ? ' 🔓' : ' 🔒');
+          App.toast(v ? T('cheat.masterOn') : T('cheat.masterOff'));
+          _applyMasterState(v); 
+          setTimeout(function () { App.refreshHud(); }, 80);
+        });
+
+      _cheatWrapper.appendChild(_subPanel);
+
+
       var g = document.createElement('div');
       g.className = 'hint';
       g.textContent = T('stamina.faintMsg');
@@ -531,8 +567,6 @@
       var llm = Config.section('llm');
       if (!llm.apiKey) { App.toast(I18n.t('toast.needKey'), true); return; }
       App.toast('测试中…');
-      /* stand-alone: testing the endpoint must not supersede (and so silently
-         discard) a reply the player is waiting for. */
       Api.chat([], '短く一言、あいさつして。', { mode: 'chat', style: 'text', standalone: true })
         .then(function (r) { App.toast('OK：' + r.text); })
         .catch(function (e) { App.toast('失败：' + e.message, true); });
@@ -540,9 +574,6 @@
 
     _testTts: function () {
       var tts = Config.section('tts');
-      /* One resolver decides which credentials are in play (providers.js) —
-         the ternary chain that used to live here drifted from Api.speak's own
-         branch list. */
       var cred = Providers.credentials(tts);
       if (!cred.capabilities.local && !cred.apiKey) { App.toast(I18n.t('toast.needKey'), true); return; }
       var model = cred.model;
@@ -550,8 +581,6 @@
         App.toast(I18n.t('toast.needModel'), true); return;
       }
       App.toast('合成中…');
-      /* no explicit mode → Api.speak uses the live talk mode, so this
-         doubles as a preview of the per-mode voice direction. */
       Api.speak('やあ、聞こえてる？').then(function (url) {
         if (!url) { App.toast('语音已关闭'); return; }
         App.playUrl(url);
@@ -565,7 +594,7 @@
       var T = function (k) { return I18n.t(k); };
       var c = Config.section('chara'), p = Config.section('profile');
 
-      App._title(w, 'ライザ（キャラ設定）');
+      App._title(w, I18n.tc('chara.ryza', 'Ryza') + ' — ' + I18n.tc('chara.title', 'Character'));
       App._field(w, T('chara.personality'), c.personality,
         function (v) { Config.set('chara.personality', v); });
       App._field(w, T('chara.likes'), c.likes,
@@ -579,7 +608,7 @@
       App._field(w, T('chara.extra'), c.extra,
         function (v) { Config.set('chara.extra', v); }, { multi: true });
 
-      App._title(w, 'あなた（プレイヤー設定）');
+      App._title(w, I18n.tc('chara.you', 'You') + ' — ' + I18n.tc('nav.profile', 'Profile'));
       App._field(w, T('onb.name'), p.name,
         function (v) { Config.set('profile.name', v); });
       App._field(w, T('onb.birthday'), p.birthday,
@@ -641,9 +670,6 @@
         localStorage.setItem(SAVE_KEY, JSON.stringify(slots));
         return true;
       } catch (e) {
-        /* The usual cause is quota: a slot carries the whole chat history, and
-           three of them share one origin's budget. Reporting success here
-           would be the second half of that same bug. */
         App.toast(I18n.t('slot.saveFail'), true);
         return false;
       }
@@ -712,10 +738,7 @@
         info.className = 'slot-info';
         if (s) {
           var d = new Date(s.at);
-          info.textContent = (i + 1) + '. ' + (s.label || '') +
-            ' · day ' + (s.day || 1) + ' · ' +
-            'Lv' + (s.game ? 1 + Math.floor(Math.sqrt((s.game.exp_total || 0) / 30)) : '?') + ' · ' +
-            d.toLocaleDateString() + ' ' + d.toLocaleTimeString();
+          info.textContent = (i + 1) + '. ' + (s.label || '') + ' · day ' + (s.day || 1) + ' · ' + 'Lv' + (s.game ? 1 + Math.floor(Math.sqrt((s.game.exp_total || 0) / 30)) : '?') + ' · ' + d.toLocaleDateString() + ' ' + d.toLocaleTimeString();
         } else {
           info.textContent = (i + 1) + '. ' + I18n.t('slot.empty');
         }

@@ -1,6 +1,5 @@
-/* Title + onboarding_questions + prologue + tutorial_talk.
-   Question widgets follow dart_source_tree: birthday/gender, free text,
-   single/multi choice. Copy is reconstructed from i18n keys + recovered lines. */
+/* Title + onboarding_questions + prologue + tutorial_talk. Question widgets follow dart_source_tree: birthday/gender, free text, single/multi choice. Copy is reconstructed from i18n keys + recovered lines. */
+   
 (function (global) {
   'use strict';
 
@@ -48,23 +47,64 @@
     ];
   }
 
-  /* Tutorial lines. The ones marked ✎ are recovered verbatim from the AOT
-     snapshot (tutorial_intro_talk_presenter / intro coachmarks / stamina
-     copy); the connective tissue around them is ours. */
+  /* Tutorial lines.*/
   var TUTORIAL = [
-    { emotion: 'happy', attitude: 'agree', ja: 'やあ、会えたね。あたし、ライザ。これからよろしくね。' },
-    { emotion: 'happy', attitude: 'agree', ja: '画面の見方を説明するね。' },                    /* ✎ */
-    { emotion: 'neutral', attitude: 'agree', ja: '上のほうのリンゴはあたしのスタミナ。' +
-        '無くなると気絶しちゃうから、気をつけて。' +                                              /* ✎ */
-        '安全な場所で寝ると回復するよ。' },                                                        /* ✎ */
-    { emotion: 'laughing', attitude: 'agree', ja: '手に入れたアイテムは、ここにしまわれるよ。' + /* ✎ */
-        'この世界のお金だよ——これも。' },                                                          /* ✎ */
-    { emotion: 'tease', attitude: 'question', ja: 'なんでも聞いてね。' +
-        '困ったときは、まずは船を手に入れて、船で自由に旅へ出ようとあたしは思ってる！' },          /* ✎ prologue */
-    { emotion: 'happy', attitude: 'agree', ja: '迷ったら、クエストを進めてみて。' +               /* ✎ */
-        '君だけの自由な発想で、クエストをクリアしていくのを、楽しみにしてるよ。' },                /* ✎ */
-    { emotion: 'laughing', attitude: 'agree', ja: 'まずはあたしとお喋りでもしてリフレッシュしよっ' }  /* ✎ */
+    { emotion: 'happy', attitude: 'agree', ja: 'Hey, we finally meet! I’m Ryza. It’s nice to meet you!' },
+    { emotion: 'happy', attitude: 'agree', ja: 'Let me show you how to navigate the screen.' }, /* ✎ */
+    { emotion: 'neutral', attitude: 'agree', ja: 'The apple at the top shows my stamina.' + ' If it runs out, I’ll pass out, so be careful.' + /* ✎ */ ' Resting in a safe place will restore it.' }, /* ✎ */
+    { emotion: 'laughing', attitude: 'agree', ja: 'Any items you collect will be stored here.' + /* ✎ */ ' And this is the currency used in this world.' }, /* ✎ */
+    { emotion: 'tease', attitude: 'question', ja: 'Feel free to ask me anything.' + ' When you’re not sure what to do, I think the best thing is to get a ship first, then set sail and explore the world freely!' }, /* ✎ prologue */
+    { emotion: 'happy', attitude: 'agree', ja: 'If you’re ever unsure what to do, try progressing through the quests.' + /* ✎ */ ' I can’t wait to see you complete them with your own unique ideas and creativity.' }, /* ✎ */
+    { emotion: 'laughing', attitude: 'agree', ja: 'For now, why don’t we have a little chat and take a break?' }  /* ✎ */
   ];
+
+  /* AgeGate — 3-layer 18+ protection
+     Layer 1: obfuscated module-level flag (_aAge)
+     Layer 2: sessionStorage seal (clears on browser close)
+     Layer 3: DOM guard (entry blocked if overlay visible) */
+  var _aAge = false;
+  var _rAge = '\u5e74\u9f62\u8a8d\u8a3c\u5b8c\u4e86'; /* 年齢認証完了 */
+
+  var _kAgeSeen = 'ryza_age_gate_seen';
+  function _ageSeen() { try { return localStorage.getItem(_kAgeSeen) === '1'; } catch (e) { return false; } }
+  function _ageMarkSeen() { try { localStorage.setItem(_kAgeSeen, '1'); } catch (e) {} }
+  function _ageSet() { _aAge = true; try { sessionStorage.setItem(_rAge, '1'); } catch (e) {} }
+  function _ageSess() { try { return sessionStorage.getItem(_rAge) === '1'; } catch (e) { return false; } }
+  function _ageOk() {
+    if (!_aAge) return false;
+    var o = document.getElementById('overlay-age');
+    if (o && !o.classList.contains('hidden')) return false;
+    return true;
+  }
+  function _ageDeny() {
+    try { window.close(); } catch (e) {}
+    document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;' +
+      'height:100vh;background:#0a060a;color:rgba(255,255,255,.55);font-size:15px;font-family:sans-serif;' +
+      'text-align:center;padding:32px;">' +
+      (window.I18n ? I18n.t('age.body') : 'Access denied. Users under 18 may not enter.') + '</div>';
+  }
+
+  var AgeGate = {
+    verified: _ageOk,
+    seen: _ageSeen,
+    show: function (onVerified) {
+      var ov = document.getElementById('overlay-age');
+      if (!ov) { _ageDeny(); return; }
+      ['age-title','age-body','btn-age-confirm','btn-age-deny'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        var k = el.getAttribute('data-i18n');
+        if (k && window.I18n) el.textContent = I18n.t(k);
+      });
+      ov.classList.remove('hidden');
+      var bc = document.getElementById('btn-age-confirm');
+      var bd = document.getElementById('btn-age-deny');
+      if (bc) bc.onclick = function () { _ageSet(); _ageMarkSeen(); ov.classList.add('hidden'); onVerified && onVerified(); };
+      if (bd) bd.onclick = function () { ov.classList.add('hidden'); _ageDeny(); };
+    }
+  };
+  global.AgeGate = AgeGate;
+  /* end AgeGate */
 
   var Onboarding = {
     step: 0,
@@ -79,7 +119,7 @@
     showTitle: function (onStart) {
       var el = document.getElementById('overlay-title');
       var btn = document.getElementById('btn-title-start');
-      document.body.classList.add('boot');       /* hide chrome behind title */
+      document.body.classList.add('boot');
       el.classList.remove('hidden');
       btn.disabled = false;
       btn.textContent = I18n.t('title.start');
@@ -87,7 +127,18 @@
         if (window.Sound) Sound.unlock();
         el.classList.add('hidden');
         document.body.classList.remove('boot');
-        onStart && onStart();
+        /* 18+ age gate — one-time (localStorage). Shown a few seconds AFTER
+           the splash is gone; skipped entirely once answered before. */
+        if (_ageSeen()) {
+          _ageSet();
+          onStart && onStart();
+          return;
+        }
+        setTimeout(function () {
+          AgeGate.show(function () {
+            onStart && onStart();
+          });
+        }, 2500);
       };
     },
 
@@ -236,9 +287,6 @@
       var hint = document.getElementById('pro-hint');
       label.textContent = n + ' / 9';
       hint.textContent = I18n.t('onb.prologueHint');
-      /* Route through App.audio so the analyser graph (lip-sync RMS) is
-         attached; `force` keeps the prologue audible even with the voice
-         toggle off — it is core onboarding narration, not reply TTS. */
       var src = Sound.prologue(n);
       if (window.App && App.playFile) { App.playFile(src, null, true); return; }
       if (Onboarding._audio) { try { Onboarding._audio.pause(); } catch (e) {} }

@@ -1,5 +1,6 @@
 /* UI strings. The rebuilt app ships zh / ja / en; the in-character content
    (Ryza's lines, place names) stays Japanese regardless of UI language. */
+   
 (function (global) {
   'use strict';
 
@@ -10,6 +11,14 @@
       'nav.memory': '回忆', 'nav.settings': '设置',
       'world.title': '世界地图', 'world.here': '在此地', 'world.current': '目前位置', 'world.list': '列表',
       'quest.title': '委托', 'alarm.title': '闹钟', 'chara.title': '角色设定',
+      'app.name': 'Ryza Chat',
+      'stamina': '体力', 'money': '金钱', 'st.level': '等级',
+      'btn.hide': '隐藏按钮', 'zoom.in': '放大', 'zoom.out': '缩小',
+      'zoom.reset': '还原缩放', 'posture': '坐/站', 'posture.sit': '↕',
+      'btn.replay': '重播语音', 'btn.fav': '收藏', 'btn.send': '发送',
+      'speed': '文字速度', 'tod': '时间段', 'nav.history': '对话记录',
+      'settings.reset': '恢复默认', 'alarm.new': '+ 新闹钟',
+      'skin.import': '导入服装', 'skin.removeImport': '移除导入',
       'skin.title': '服装', 'memory.title': '回忆', 'settings.title': '设置',
       'toast.saved': '已保存', 'toast.copied': '已复制',
       'toast.needKey': '请先在设置里填写 API Key',
@@ -198,18 +207,44 @@
       'inv.cap': '容量 {u}/{c}', 'inv.upgrade': '扩容（{p}G）', 'inv.upgraded': '背包升级了！',
       'inv.tooSmall': '金币还不够，先开店赚点吧。',
       'stamina.faintTitle': '体力耗尽…',
-      'stamina.faintMsg': '体力用完莱莎就要晕倒了。回安全的地方睡一觉就能恢复哦。',
+      'stamina.faintMsg': '',
       'stamina.sleep': '回家睡觉恢复', 'stamina.slept': '睡了一觉，体力全恢复了！',
       'dl.subtitle': '每天回来看看莱莎，连续登录有奖励。',
       'dl.progress': '连续 {n} 天', 'dl.next': '下一站：{r}',
       'dl.cta': '领取今日奖励', 'dl.done': '今日已领取', 'dl.already': '今天已经领过啦',
       'dl.got': '获得：',
+      'dl.buy': '{cost}G补签', 'dl.buyHint': '花G补领错过的奖励',
+      'dl.resetNote': '每周一07:00重置 · 补签价：30G/天',
+      'dl.catchupLog': '补签{day}：{msgs}（-{cost}G）',
       'dl.week.mon': '周一', 'dl.week.tue': '周二', 'dl.week.wed': '周三',
       'dl.week.thu': '周四', 'dl.week.fri': '周五', 'dl.week.sat': '周六', 'dl.week.sun': '周日',
-      'cheat.title': '作弊模式',
+      'cheat.title': '', 'cheat.master': '🔐 作弊模式主开关',
+      'cheat.masterDesc': '',
+      'cheat.masterOn': '✅ 作弊模式已解锁', 'cheat.masterOff': '🔒 作弊模式已关闭，所有子功能暂停',
+      'cheat.lockNote': '⚠️ 请先开启上方「作弊模式主开关」，再激活子功能。',
+      'cheat.freeBuy': '免费购买所有道具', 'cheat.freeBuyDesc': '商店/委托消耗G设为0',
+      'cheat.unlimCurrency': '无限货币', 'cheat.unlimCurrencyDesc': '金币永远充足（999999999G）',
+      'cheat.unlimStamina': '无限体力', 'cheat.unlimStaminaDesc': '体力不会减少，永远满格',
+      'cheat.maxLevel': '满级 Lv.99 + 满经验', 'cheat.maxLevelDesc': '等级直接跳到99，经验 9999999999/9999999999',
+      'cheat.unlockMap': '解锁全地图', 'cheat.unlockMapDesc': '无需完成第8个主线即可进入所有地区',
+      'cheat.others': '其他增益', 'cheat.othersDesc': '未来扩展的作弊功能',
       'cheat.desc': '体力、金币无限。关掉就恢复消耗。',
       'cheat.on': '作弊模式已开启', 'cheat.off': '作弊模式已关闭，限制回来了',
       'cheat.refill': '作弊：全恢复',
+      'cheat.freeQuest': '🎯 任务零体力消耗', 'cheat.freeQuestDesc': '执行任务不消耗体力，完全免费',
+      'age.title': '年龄确认', 'age.body': '本内容仅适合18岁（含）以上人士。请确认您已满18周岁。', 'age.confirm': '✅ 我已满18岁，进入', 'age.deny': '❌ 我未满18岁，退出',
+      'place.area_03': '内密德地方', 'place.area_04': '冥界奥利姆',
+      'place.field_01_002': '皮奥尼尔圣塔', 'place.field_01_003': '古宅邸',
+      'place.field_01_004': '旅人之道', 'place.field_01_005': '隐秘入江',
+      'place.field_01_006': '枫叶三角洲', 'place.field_01_007': '魏斯贝尔克火山',
+      'place.field_01_008': '流星古城', 'place.field_01_009': '小精灵之森',
+      'place.field_01_010': '古旧大宅', 'place.field_01_011': '利泽峡谷',
+      'place.field_01_012': '遗忘废村', 'place.field_01_013': '水没坑道',
+      'place.field_01_014': '卡克群岛', 'place.field_01_015': '万象大典',
+      'place.stage_01_001_01': '旅人广场', 'place.stage_01_001_05': '彩花之环',
+      'place.stage_01_001_06': '库肯港口', 'place.stage_01_001_08': '钟楼',
+      'place.stage_01_001_09': '水源瀑布', 'place.stage_01_001_10': '采集地',
+      'place.stage_01_002_02': '克劳迪亚家', 'place.stage_01_002_03': '集市广场', 'place.stage_01_002_04': '码头',
       'settings.cheat': '游戏性', 'settings.speed': '文字速度',
       'settings.erase': '抹除全部本地数据',
       'settings.eraseMsg': '对话记录、任务进度、设定等所有信息都会消失，且无法恢复。',
@@ -291,6 +326,14 @@
       'nav.memory': '思い出', 'nav.settings': '設定',
       'world.title': 'ワールドマップ', 'world.here': 'この場所にいる人', 'world.current': '現在地', 'world.list': 'リスト',
       'quest.title': 'クエスト', 'alarm.title': 'アラーム', 'chara.title': 'キャラ設定',
+      'app.name': 'ライザと話す',
+      'stamina': 'スタミナ', 'money': '所持金', 'st.level': 'レベル',
+      'btn.hide': 'ボタンを隠す', 'zoom.in': '拡大', 'zoom.out': '縮小',
+      'zoom.reset': '標準に戻す', 'posture': '座る/立つ', 'posture.sit': '座',
+      'btn.replay': 'もう一度聞く', 'btn.fav': 'お気に入り', 'btn.send': '送信',
+      'speed': 'テキスト速度', 'tod': '時間帯', 'nav.history': '会話履歴',
+      'settings.reset': 'リセット', 'alarm.new': '+ 新しいアラーム',
+      'skin.import': '服装インポート', 'skin.removeImport': 'インポートを削除',
       'skin.title': 'スキン', 'memory.title': '思い出', 'settings.title': '設定',
       'toast.saved': '保存しました', 'toast.copied': 'コピーしました',
       'toast.needKey': '先に設定で API キーを入力してください',
@@ -476,18 +519,32 @@
       'inv.cap': '容量 {u}/{c}', 'inv.upgrade': '拡張（{p}G）', 'inv.upgraded': 'バッグが大きくなった！',
       'inv.tooSmall': 'お金が足りないよ。お店を開こう！',
       'stamina.faintTitle': 'スタミナがゼロ…',
-      'stamina.faintMsg': '無くなると気絶しちゃうから。安全な場所で寝ると回復するよ。',
+      'stamina.faintMsg': '',
       'stamina.sleep': 'おうちへ帰って寝る', 'stamina.slept': 'ぐっすり眠ってスタミナ全回復！',
       'dl.title': '毎日ログイン', 'dl.subtitle': '毎日あいさつすると連続ログイン報酬がもらえるよ。',
       'dl.progress': '連続 {n} 日', 'dl.next': 'こんかいは：{r}',
       'dl.cta': '今日の報酬をもらう', 'dl.done': '今日はもうもらった！', 'dl.already': '今日はすでに受け取り済み',
       'dl.got': 'ゲット：',
+      'dl.buy': '{cost}G補填', 'dl.buyHint': '逃した日の報酬をGで購入',
+      'dl.resetNote': '毎週月曜07:00リセット · 補填：30G/日',
+      'dl.catchupLog': '{day}補填：{msgs}（-{cost}G）',
       'dl.week.mon': '月', 'dl.week.tue': '火', 'dl.week.wed': '水',
       'dl.week.thu': '木', 'dl.week.fri': '金', 'dl.week.sat': '土', 'dl.week.sun': '日',
-      'cheat.title': 'チートモード',
+      'cheat.title': '', 'cheat.master': '🔐 チートマスタースイッチ',
+      'cheat.masterDesc': '',
+      'cheat.masterOn': '✅ チートモード解放', 'cheat.masterOff': '🔒 チートモードOFF、サブ機能すべて停止',
+      'cheat.lockNote': '⚠️ まず上の「マスタースイッチ」をONにしてください。',
+      'cheat.freeBuy': '全アイテム無料購入', 'cheat.freeBuyDesc': 'ショップや依頼のG消費が0になる',
+      'cheat.unlimCurrency': '無限所持金', 'cheat.unlimCurrencyDesc': '所持金が常に999999999G',
+      'cheat.unlimStamina': '無限スタミナ', 'cheat.unlimStaminaDesc': 'スタミナが減らない、常に満タン',
+      'cheat.maxLevel': '最大Lv.99＋最大EXP', 'cheat.maxLevelDesc': 'レベル99に即ジャンプ、EXP9999999999/9999999999',
+      'cheat.unlockMap': '全マップ解放', 'cheat.unlockMapDesc': 'メイン8をクリアしなくても全エリアに行ける',
+      'cheat.others': 'その他ボーナス', 'cheat.othersDesc': '将来の追加チート機能',
       'cheat.desc': 'スタミナと所持金が無制限。オフにすれば元に戻る。',
       'cheat.on': 'チートモードON', 'cheat.off': 'チートモードOFF。制限が戻ったよ',
       'cheat.refill': 'チート：全回復',
+      'cheat.freeQuest': '🎯 クエストスタミナ無料', 'cheat.freeQuestDesc': 'クエスト実行でスタミナを消費しない',
+      'age.title': '年齢確認', 'age.body': 'このコンテンツは18歳以上の方を対象としています。続けるには年齢をご確認ください。', 'age.confirm': '✅ 18歳以上です、続ける', 'age.deny': '❌ 18歳未満です、退出',
       'settings.cheat': 'ゲームバランス', 'settings.speed': '文字速度',
       'settings.erase': 'セーブデータを削除する',
       'settings.eraseMsg': '会話の記録やボイストークンなど、全ての情報が失われます。',
@@ -569,6 +626,14 @@
       'nav.memory': 'Memories', 'nav.settings': 'Settings',
       'world.title': 'World Map', 'world.here': 'Present here', 'world.current': 'Current location',
       'quest.title': 'Quests', 'alarm.title': 'Alarm', 'chara.title': 'Character',
+      'app.name': 'Ryza Chat',
+      'stamina': 'Stamina', 'money': 'Money', 'st.level': 'Level',
+      'btn.hide': 'Hide buttons', 'zoom.in': 'Zoom in', 'zoom.out': 'Zoom out',
+      'zoom.reset': 'Reset zoom', 'posture': 'Sit / Stand', 'posture.sit': '↕',
+      'btn.replay': 'Replay voice', 'btn.fav': 'Favourite', 'btn.send': 'Send',
+      'speed': 'Text speed', 'tod': 'Time of day', 'nav.history': 'Chat history',
+      'settings.reset': 'Reset defaults', 'alarm.new': '+ New alarm',
+      'skin.import': 'Import outfit', 'skin.removeImport': 'Remove import',
       'skin.title': 'Outfits', 'memory.title': 'Memories', 'settings.title': 'Settings',
       'toast.saved': 'Saved', 'toast.copied': 'Copied',
       'toast.needKey': 'Set your API key in Settings first',
@@ -754,18 +819,44 @@
       'inv.cap': 'Slots {u}/{c}', 'inv.upgrade': 'Upgrade ({p}G)', 'inv.upgraded': 'Bag upgraded!',
       'inv.tooSmall': 'Not enough gold — open the shop first.',
       'stamina.faintTitle': 'Out of stamina…',
-      'stamina.faintMsg': 'She faints when it runs out. Sleep somewhere safe to recover.',
+      'stamina.faintMsg': '',
       'stamina.sleep': 'Go home and sleep', 'stamina.slept': 'A deep sleep — stamina restored!',
       'dl.subtitle': 'Come say hi every day; streaks pay out.',
       'dl.progress': 'Streak: {n} days', 'dl.next': 'Next: {r}',
       'dl.cta': 'Claim today', 'dl.done': 'Already claimed', 'dl.already': 'You already claimed today',
       'dl.got': 'Got: ',
+      'dl.buy': '{cost}G', 'dl.buyHint': 'Buy missed day reward',
+      'dl.resetNote': 'Resets Mon 07:00 · Past days: 30G each',
+      'dl.catchupLog': 'Bought {day}: {msgs} (-{cost}G)',
       'dl.week.mon': 'Mon', 'dl.week.tue': 'Tue', 'dl.week.wed': 'Wed',
       'dl.week.thu': 'Thu', 'dl.week.fri': 'Fri', 'dl.week.sat': 'Sat', 'dl.week.sun': 'Sun',
-      'cheat.title': 'Cheat mode',
+      'cheat.title': 'Cheat mode', 'cheat.master': '🔐 Cheat Master Switch',
+      'cheat.masterDesc': '',
+      'cheat.masterOn': '✅ Cheat mode on', 'cheat.masterOff': '🔒 Cheat mode off',
+      'cheat.lockNote': '',
+      'cheat.freeBuy': 'Free purchase all items', 'cheat.freeBuyDesc': 'Shop/quest costs reduced to 0G',
+      'cheat.unlimCurrency': 'Unlimited currency', 'cheat.unlimCurrencyDesc': 'Gold always maxed (999999999G)',
+      'cheat.unlimStamina': 'Unlimited stamina', 'cheat.unlimStaminaDesc': 'Stamina never drains, always full',
+      'cheat.maxLevel': 'Max Lv.99 + Max EXP', 'cheat.maxLevelDesc': 'Jump to level 99, EXP 9999999999/9999999999',
+      'cheat.unlockMap': 'Unlock all world map', 'cheat.unlockMapDesc': 'Access all regions without clearing quest 8',
+      'cheat.others': 'Other bonuses', 'cheat.othersDesc': 'Future cheat expansions',
       'cheat.desc': 'Unlimited stamina and gold. Switch off to spend them again.',
       'cheat.on': 'Cheat mode ON', 'cheat.off': 'Cheat mode OFF — limits are back',
       'cheat.refill': 'Cheat: refill',
+      'cheat.freeQuest': '🎯 Free quest stamina', 'cheat.freeQuestDesc': 'Quest actions cost 0 stamina',
+      'age.title': 'Age Verification', 'age.body': 'This content is for users aged 18 and above. Please confirm your age to continue.', 'age.confirm': '✅ I am 18 or older — Continue', 'age.deny': '❌ I am under 18 — Exit',
+      'place.area_03': 'Nemed Region', 'place.area_04': 'Underworld Olim',
+      'place.field_01_002': 'Pioneel Holy Tower', 'place.field_01_003': 'Old Mansion',
+      'place.field_01_004': "Traveler's Road", 'place.field_01_005': 'Hidden Cove',
+      'place.field_01_006': 'Maple Delta', 'place.field_01_007': 'Weissberg Volcano',
+      'place.field_01_008': 'Shooting Star Ruins', 'place.field_01_009': 'Fairy Forest',
+      'place.field_01_010': 'Ancient Ruins', 'place.field_01_011': 'Lieze Canyon',
+      'place.field_01_012': 'Forgotten Village', 'place.field_01_013': 'Submerged Mineshaft',
+      'place.field_01_014': 'Kark Islands', 'place.field_01_015': 'Grand Encyclopedia',
+      'place.stage_01_001_01': "Traveler's Plaza", 'place.stage_01_001_05': 'Rainbow Ring',
+      'place.stage_01_001_06': 'Kurken Port', 'place.stage_01_001_08': 'Clock Tower',
+      'place.stage_01_001_09': 'Spring Falls', 'place.stage_01_001_10': 'Gathering Area',
+      'place.stage_01_002_02': "Claudia's House", 'place.stage_01_002_03': 'Market Square', 'place.stage_01_002_04': 'Dock',
       'settings.cheat': 'Game balance', 'settings.speed': 'Text speed',
       'settings.erase': 'Erase all local data',
       'settings.eraseMsg': 'Every conversation, quest and setting will be lost. This cannot be undone.',
@@ -884,16 +975,21 @@
     'dl.progress': '連續 {n} 天', 'dl.next': '下一站：{r}',
     'dl.cta': '領取今日獎勵', 'dl.done': '今日已領取', 'dl.already': '今天已經領過啦',
     'dl.got': '獲得：',
+      'dl.buy': '{cost}G補簽', 'dl.buyHint': '花G補領錯過的獎勵',
+      'dl.resetNote': '每週一07:00重置 · 補簽：30G/天',
+      'dl.catchupLog': '補簽{day}：{msgs}（-{cost}G）',
     'dl.week.mon': '週一', 'dl.week.tue': '週二', 'dl.week.wed': '週三',
     'dl.week.thu': '週四', 'dl.week.fri': '週五', 'dl.week.sat': '週六', 'dl.week.sun': '週日',
     'cheat.title': '作弊模式',
     'cheat.desc': '體力、金幣無限。關掉就恢復消耗。',
     'cheat.on': '作弊模式已開啟', 'cheat.off': '作弊模式已關閉，限制回來了',
     'cheat.refill': '作弊：全恢復',
+    'cheat.freeQuest': '🎯 任務零體力消耗', 'cheat.freeQuestDesc': '執行任務不消耗體力',
+    'age.title': '年齡確認', 'age.body': '本內容僅適合18歲（含）以上人士。請確認您已滿18歲。', 'age.confirm': '✅ 我已滿18歲，繼續', 'age.deny': '❌ 我未滿18歲，退出',
     'stamina.faintTitle': '體力耗盡…',
-    'stamina.faintMsg': '體力用完萊莎就要暈倒了。回安全的地方睡一覺就能恢復哦。',
+    'stamina.faintMsg': '',
     'stamina.sleep': '回家睡覺恢復', 'stamina.slept': '睡了一覺，體力全恢復了！',
-    'st.title': '冒險狀態',
+    'mem.wm': '完成歡迎任務「{title}」！', 'mem.daily': '連續登錄第{n}天：{msgs}', 'st.title': '冒險狀態',
     'inv.you': '你的背包', 'inv.ryza': '萊莎的背包',
     'inv.cap': '容量 {u}/{c}', 'inv.upgrade': '擴容（{p}G）',
     'settings.cheat': '遊戲性', 'settings.speed': '文字速度',
@@ -918,7 +1014,8 @@
     'nav.welcome': 'स्वागत', 'nav.profile': 'प्रोफ़ाइल',
     'talk.resetTitle': 'नई बात शुरू करें?',
     'title.start': 'शुरू', 'mode.sheet': 'बात मोड' , 'mode.chat': 'चैट', 'mode.story': 'कहानी', 'mode.immersive': 'इमर्सिव',
-    'mode.asmr': 'ASMR', 'mode.text': 'टेक्स्ट', 'style.voice': '🔊 वॉइस', 'style.text': '📝 टेक्स्ट'
+    'mode.asmr': 'ASMR', 'mode.text': 'टेक्स्ट', 'style.voice': '🔊 वॉइस', 'style.text': '📝 टेक्स्ट',
+    'mem.wm': 'स्वागत मिशन "{title}" पूरा!', 'mem.daily': '{n} दिन लॉगिन: {msgs}'
   });
 
   /* Indonesian — full UI translation (2026-09); inherits T.en for any key
@@ -926,6 +1023,14 @@
   T.id = inherit(T.en, {
     'world.here': 'Ada di sini',
     'chara.title': 'Karakter',
+      'app.name': 'Ryza Chat',
+      'stamina': 'Stamina', 'money': 'Uang', 'st.level': 'Level',
+      'btn.hide': 'Sembunyikan tombol', 'zoom.in': 'Perbesar', 'zoom.out': 'Perkecil',
+      'zoom.reset': 'Reset zoom', 'posture': 'Duduk/Berdiri', 'posture.sit': '↕',
+      'btn.replay': 'Putar ulang', 'btn.fav': 'Favorit', 'btn.send': 'Kirim',
+      'speed': 'Kecepatan teks', 'tod': 'Waktu', 'nav.history': 'Riwayat obrolan',
+      'settings.reset': 'Reset default', 'alarm.new': '+ Alarm baru',
+      'skin.import': 'Impor kostum', 'skin.removeImport': 'Hapus impor',
     'skin.title': 'Kostum',
     'memory.title': 'Kenangan',
     'toast.saved': 'Tersimpan',
@@ -1191,7 +1296,7 @@
     'quest.act.build': 'Pasang bagian kapal',
     'quest.act.sail': 'Berlayar!',
     'toast.questGen': 'Ryza sedang merancang misi…',
-    'st.title': 'Status petualang',
+    'mem.wm': 'Misi selamat datang "{title}" selesai!', 'mem.daily': 'Login beruntun hari ke-{n}: {msgs}', 'st.title': 'Status petualang',
     'st.level': 'Level',
     'st.exp': 'EXP',
     'stamina': 'Stamina',
@@ -1204,7 +1309,7 @@
     'inv.upgraded': 'Tas ditingkatkan!',
     'inv.tooSmall': 'Emas kurang — buka toko dulu.',
     'stamina.faintTitle': 'Stamina habis…',
-    'stamina.faintMsg': 'Dia pingsan kalau habis. Tidurlah di tempat aman untuk memulihkan.',
+    'stamina.faintMsg': '',
     'stamina.sleep': 'Pulang dan tidur',
     'stamina.slept': 'Tidur nyenyak — stamina pulih!',
     'dl.subtitle': 'Mampir tiap hari; rentetan membayar.',
@@ -1214,6 +1319,9 @@
     'dl.done': 'Sudah diklaim',
     'dl.already': 'Kamu sudah klaim hari ini',
     'dl.got': 'Dapat: ',
+      'dl.buy': '{cost}G', 'dl.buyHint': 'Beli hadiah hari yang terlewat',
+      'dl.resetNote': 'Reset Senin 07:00 · Hari terlewat: 30G/hari',
+      'dl.catchupLog': 'Beli {day}: {msgs} (-{cost}G)',
     'dl.week.mon': 'Sen',
     'dl.week.tue': 'Sel',
     'dl.week.wed': 'Rab',
@@ -1221,11 +1329,28 @@
     'dl.week.fri': 'Jum',
     'dl.week.sat': 'Sab',
     'dl.week.sun': 'Min',
-    'cheat.title': 'Mode cheat',
+    'cheat.title': 'Mode cheat', 'cheat.master': '🔐 Kunci Utama Cheat',
+    'cheat.masterDesc': '.',
+    'cheat.masterOn': '✅ Cheat aktif', 'cheat.masterOff': '🔒 Cheat dimatikan',
+    'cheat.lockNote': '',
+    'cheat.freeBuy': 'Beli semua gratis', 'cheat.freeBuyDesc': 'Harga item jadi 0G',
+    'cheat.unlimCurrency': 'Mata uang tak terbatas', 'cheat.unlimCurrencyDesc': 'Emas selalu penuh',
+    'cheat.unlimStamina': 'Stamina tak terbatas', 'cheat.unlimStaminaDesc': 'Stamina tidak pernah habis',
+    'cheat.maxLevel': 'Level Maks Lv.99', 'cheat.maxLevelDesc': 'Langsung level 99, EXP 9999999999/9999999999',
+    'cheat.unlockMap': 'Buka semua peta', 'cheat.unlockMapDesc': 'Akses semua wilayah tanpa syarat',
+    'cheat.others': 'Bonus lainnya', 'cheat.othersDesc': 'Ekspansi cheat ke depan',
     'cheat.desc': 'Stamina dan emas tak terbatas. Matikan untuk memakai batas lagi.',
     'cheat.on': 'Mode cheat NYALA',
     'cheat.off': 'Mode cheat MATI — batas kembali berlaku',
+    'place.area_03': 'Wilayah Nemed', 'place.area_04': 'Dunia Bawah Olim',
+    'place.field_01_002': 'Menara Suci Pioneel', 'place.field_01_004': 'Jalan Musafir',
+    'place.field_01_005': 'Teluk Tersembunyi', 'place.field_01_006': 'Delta Maple',
+    'place.field_01_007': 'Gunung Berapi Weissberg', 'place.field_01_009': 'Hutan Peri',
+    'place.field_01_011': 'Ngarai Lieze', 'place.field_01_012': 'Desa Terlupakan',
+    'place.field_01_013': 'Tambang Banjir', 'place.field_01_014': 'Kepulauan Kark',
     'cheat.refill': 'Cheat: isi penuh',
+    'cheat.freeQuest': '🎯 Stamina quest gratis', 'cheat.freeQuestDesc': 'Aksi quest tidak pakai stamina',
+    'age.title': 'Verifikasi Usia', 'age.body': 'Konten ini hanya untuk pengguna berusia 18 tahun ke atas. Harap konfirmasi usia Anda untuk melanjutkan.', 'age.confirm': '✅ Saya 18 tahun ke atas — Lanjutkan', 'age.deny': '❌ Saya di bawah 18 tahun — Keluar',
     'settings.cheat': 'Keseimbangan game',
     'settings.speed': 'Kecepatan teks',
     'settings.erase': 'Hapus semua data lokal',
@@ -1290,7 +1415,8 @@
     'nav.welcome': 'Boas-vindas', 'nav.profile': 'Perfil',
     'talk.resetTitle': 'Começar uma nova conversa?',
     'title.start': 'Começar', 'mode.sheet': 'Modo de conversa' , 'mode.chat': 'Bate-papo', 'mode.story': 'História', 'mode.immersive': 'Imersivo',
-    'mode.asmr': 'ASMR', 'mode.text': 'Texto', 'style.voice': '🔊 Voz', 'style.text': '📝 Texto'
+    'mode.asmr': 'ASMR', 'mode.text': 'Texto', 'style.voice': '🔊 Voz', 'style.text': '📝 Texto',
+    'mem.wm': 'Missão de boas-vindas "{title}" concluída!', 'mem.daily': 'Sequência de login dia {n}: {msgs}'
   });
 
   /* =====================================================================
@@ -1358,10 +1484,22 @@
       'tut.7': 'まずはあたしとお喋りでもしてリフレッシュしよっ',
       'greet.1': '……やあ、会えたね。', 'greet.n': '……今日も、会えたね。',
       'mem.met': '{names} と出会った。', 'mem.sleep': '安全なおうちでぐっすり眠った。',
-      'mem.cleared': '「{title}」をクリア！ +{exp}EXP / +{money}G', 'mem.lv': 'Lv{lv} reached!',
+      'mem.cleared': '「{title}」をクリア！ +{exp}EXP / +{money}G', 'mem.lv': 'Lv{lv} reached!', 'mem.wm': 'ウェルカムミッション「{title}」クリア', 'mem.daily': '連続ログイン {n} 日目：{msgs}',
       'place.area_01': 'クーケン島周辺地域', 'place.area_02': 'クレリア地方', 'place.area_03': 'ネメッド地方',
       'place.area_04': '冥界オーリム', 'place.area_05': '王都周辺地域',
-      'place.field_01_001': 'クーケン島', 'place.stage_01_001_04': 'ライザの家',
+      'place.field_01_001': 'クーケン島', 'place.field_01_002': 'ピオニール聖塔',
+      'place.field_01_003': '古びた大邸宅', 'place.field_01_004': '旅人の道',
+      'place.field_01_005': '隠された入り江', 'place.field_01_006': 'メイプルデルタ',
+      'place.field_01_007': '火山ヴァイスベルク', 'place.field_01_008': '流星の古城',
+      'place.field_01_009': '小妖精の森', 'place.field_01_010': '古びた廃屋',
+      'place.field_01_011': 'リーゼ峡谷', 'place.field_01_012': '忘れ去られた廃村',
+      'place.field_01_013': '水没坑道', 'place.field_01_014': 'カーク群島',
+      'place.field_01_015': '万象の大典',
+      'place.stage_01_001_01': '旅人の広場', 'place.stage_01_001_05': '彩花の円環',
+      'place.stage_01_001_06': 'クーケン港', 'place.stage_01_001_08': '時計台',
+      'place.stage_01_001_09': '水源の滝', 'place.stage_01_001_10': '採集地',
+      'place.stage_01_002_02': 'クラウディアの家', 'place.stage_01_002_03': '市場広場', 'place.stage_01_002_04': '波止場',
+      'place.stage_01_001_04': 'ライザの家',
       'input.hint': 'なんでも聞いてね', 'input.wake': 'タップしてライザを起こす',
       'qobs.gather': 'いい素材は少し奥まで入らないと採れないみたい。',
       'qobs.craft': '調合は失敗しやすいから、材料は余裕をもって集めとこ。',
@@ -1431,7 +1569,7 @@
       'tut.7': '先陪我聊聊天放松一下嘛',
       'greet.1': '……呀，见到你啦。', 'greet.n': '……今天也，见到你啦。',
       'mem.met': '遇见了{names}。', 'mem.sleep': '在安全的家里睡了个好觉。',
-      'mem.cleared': '通关「{title}」！+{exp}经验 / +{money}G', 'mem.lv': '升到 Lv{lv} 了！',
+      'mem.cleared': '通关「{title}」！+{exp}经验 / +{money}G', 'mem.lv': '升到 Lv{lv} 了！', 'mem.wm': '完成欢迎任务「{title}」！', 'mem.daily': '连续登录第{n}天：{msgs}',
       'place.area_01': '库肯岛周边地区', 'place.area_02': '克莱莉亚地区', 'place.area_05': '王都周边地区',
       'place.field_01_001': '库肯岛', 'place.stage_01_001_04': '莱莎家', 'place.stage_01_002_01': '塔奥家门前',
       'item.bottle': '回复药（草豆）',
@@ -1504,7 +1642,7 @@
       'tut.7': 'Let\u2019s chat a bit and refresh first',
       'greet.1': '…Hey, there you are.', 'greet.n': '…There you are again today.',
       'mem.met': 'Met {names}.', 'mem.sleep': 'Slept soundly at the safe home.',
-      'mem.cleared': 'Cleared "{title}"! +{exp}EXP / +{money}G', 'mem.lv': 'Reached Lv{lv}!',
+      'mem.cleared': 'Cleared "{title}"! +{exp}EXP / +{money}G', 'mem.lv': 'Reached Lv{lv}!', 'mem.wm': 'Welcome mission "{title}" cleared!', 'mem.daily': 'Day {n} login streak: {msgs}',
       'place.area_01': 'Kurken Island Area', 'place.area_02': 'Cleria region',
       'place.field_01_001': 'Kurken Island', 'place.stage_01_001_04': 'Ryza\u2019s Home',
       'input.hint': 'Say something to Ryza…', 'input.wake': 'Tap to wake Ryza',
@@ -1536,6 +1674,7 @@
       dennis: 'Dennis', cassandra: 'Cassandra', kala: 'Kala', alberta: 'Alberta',
       saverio: 'Saverio', anna: 'Anna', dort: 'Dort', federica: 'Federica', dian: 'Dian' }
   };
+  
   /* zh (simplified UI) mirrors the zh-TW official forms, char-converted */
   var NPC_ZH_TW = NPC_NAMES.zh;
   var NPC_ZH_CN = {};
@@ -1570,7 +1709,7 @@
   Object.keys(CONTENT.zh).forEach(function (k) {
     if (CONTENT.zh[k] && k !== 'npc') T['zh-tw'][k] = CONTENT.zh[k];
   });
-  mergeContent('zh-tw');          /* npc.* overridden with the zh-TW forms */
+  mergeContent('zh-tw'); /* npc.* overridden with the zh-TW forms */
   ['hi', 'id', 'pt-br'].forEach(function (lg) { mergeContent(lg); });
 
   /* Official zh-TW sentences recovered verbatim from libapp.so (UTF-16
@@ -1606,32 +1745,26 @@
      independent choices (user requirement). 'auto' falls through:
      voice.lang→UI, llm.lang→UI, tts.lang→resolved llm.lang.
      ================================================================== */
-  var LANG_NAMES = {            /* how to address each language in a prompt */
+  var LANG_NAMES = { /* how to address each language in a prompt */
     zh: '简体中文', 'zh-tw': '繁體中文', ja: '日本語', en: 'English',
     hi: 'हिन्दी', id: 'Bahasa Indonesia', 'pt-br': 'Português (Brasil)'
   };
-  var TTS_LANGS = {             /* qwen3-tts language_type values */
+  
+  var TTS_LANGS = { /* qwen3-tts language_type values */
     zh: 'Chinese', 'zh-tw': 'Chinese', ja: 'Japanese', en: 'English',
     hi: 'Auto', id: 'Auto', 'pt-br': 'Auto'
   };
-  /* BCP-47 tags for the speech recogniser. This is the single owner of the
-     mapping: web/js/voice.js used to keep its own copy which was missing `hi`,
-     `id` and `pt-br` — three of the seven UI languages silently listened for
-     Japanese. Any language added to ALL needs a tag here; the voice regression
-     asserts that, which is the check that would have caught the drift. */
+
   var STT_TAGS = {
     zh: 'zh-CN', 'zh-tw': 'zh-TW', ja: 'ja-JP', en: 'en-US',
     hi: 'hi-IN', id: 'id-ID', 'pt-br': 'pt-BR'
-  };
-  /* ISO-639-1 for the transcription request's `language` field. A DIFFERENT
-     namespace from the BCP-47 tags above (an ASR endpoint wants 'ja', the
-     recogniser wants 'ja-JP'), so it is a separate table rather than a
-     .slice(0,2) — 'zh-tw' would otherwise become 'zh' by luck and 'pt-br'
-     would lose its region. */
+  }; 
+  
   var STT_ISO = {
     zh: 'zh', 'zh-tw': 'zh', ja: 'ja', en: 'en',
     hi: 'hi', id: 'id', 'pt-br': 'pt'
   };
+  
   var Langs = {
     ui: function () { return (Config.section('app') || {}).lang || 'zh'; },
     voice: function () {
@@ -1648,11 +1781,8 @@
     },
     name: function (lg) { return LANG_NAMES[lg] || lg; },
     ttsLangType: function (lg) { return TTS_LANGS[lg] || 'Auto'; },
-    /* BCP-47 for the recogniser. Unknown codes pass through rather than
-       silently becoming Japanese. */
     sttTag: function (lg) { return STT_TAGS[lg] || lg || 'ja-JP'; },
     STT_TAGS: STT_TAGS,
-    /* ISO-639-1 for the ASR endpoint; unknown codes pass through. */
     sttLang: function (lg) { return STT_ISO[lg] || lg || ''; },
     STT_ISO: STT_ISO,
     ALL: [
@@ -1667,11 +1797,6 @@
   var I18n = {
     lang: 'zh',
     LANG_NAMES: LANG_NAMES,
-    /* Derived, not a second list. Membership and order come from Langs.ALL minus
-       'auto' (this picker chooses the UI language, which cannot be automatic),
-       and the label is the language's own name from LANG_NAMES — the same table
-       that names languages in the prompt. The hand-written copy this replaces
-       had already diverged from it ('Indonesia' vs 'Bahasa Indonesia'). */
     LANGS: Langs.ALL
       .filter(function (x) { return x.v !== 'auto'; })
       .map(function (x) { return { id: x.v, label: LANG_NAMES[x.v] || x.v }; }),
@@ -1701,10 +1826,6 @@
       });
       return s;
     },
-    /* NOTE: the DOM walk that used to live here as I18n.apply() moved to the UI
-       layer (App.applyI18n) — a string table has no business touching the DOM.
-       Everything above stays pure lookup/formatting so this module can run
-       headless. */
   };
 
   global.I18n = I18n;

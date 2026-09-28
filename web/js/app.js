@@ -1,15 +1,11 @@
-/* Main controller: boots straight into the game (no login, no official
-   backend), wires the talk loop, the RPG layer (game.js / quests.js /
-   daily.js) and the settings/chara forms. This module only orchestrates:
-   state lives in Config/Game/Quests/Daily, rendering of the avatar in
-   Avatar, sound in Sound, map in World. */
+/* Main controller: boots straight into the game (no login, no official */
+   
 (function (global) {
   'use strict';
 
   var MEM_KEY = 'ryza.memory.v1';
-  /* The save-slot key lives with the slot code (settings.js) — a closure-local
-     const in this file is invisible there, which is exactly how the slots broke. */
-  var HOME_STAGE = 'stage_01_001_04';       // ライザの家 — the safe place to sleep
+  
+  var HOME_STAGE = 'stage_01_001_04';
   var RPG_MODES = { chat: 1, story: 1, immersive: 1 };
 
   var App = {
@@ -23,7 +19,6 @@
     _lastText: '',
     _invBag: 'you',
 
-    /* ------------------------------------------------------------- utils */
     toast: function (msg, isErr) {
       var host = document.getElementById('toast-host');
       var el = document.createElement('div');
@@ -56,37 +51,32 @@
       } catch (e) {}
     },
 
-    /* HTML escaper for the few places that build innerHTML around dynamic
-       (LLM-authored) text — e.g. the quest title row in the status sheet. */
     esc: function (s) {
       return String(s == null ? '' : s)
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     },
 
-    /* Desktop UI zoom. #phone now fills the window (no more letterbox), so a
-       small window must scale the fixed-px chrome instead of letting it
-       crowd/overflow. CSS zoom scales the whole layout as one; pointer math
-       divides it back out via Avatar.cssZoom, and the canvas backing store
-       multiplies dpr by it (see avatar.js). Electron-only: phones keep zoom
-       1 and rely on the fluid full-viewport layout. */
-    /* How much of the screen the bottom log panel covers — the camera's
-       plate clamp lets the window sink below the painted art by exactly
-       this much (the panel hides the seam). FROZEN at the expanded height:
-       tracking the collapsed strip re-solved the window on every toggle —
-       the background zoomed and she slid ~180px down (worse than the seam
-       it hid). At the current framing factors the hideout's collapsed
-       exposure is a ~4% sliver right above the strip, dressed by the
-       #stage bottom gradient. The hideout is the ONLY stage with a seam
-       to hide: its art is split far_bg (ends at world 629) + floor
-       (starts at −1064) with a 1693u gap; every other scene ships one
-       full-coverage backdrop quad. */
-    /* Applies data-i18n attributes in a subtree. Lives here (not in i18n.js)
-       because walking the DOM is presentation; i18n.js stays a pure table. */
     applyI18n: function (root) {
-      (root || document).querySelectorAll('[data-i18n]').forEach(function (el) {
-        el.textContent = I18n.t(el.getAttribute('data-i18n'));
+      var r = root || document;
+ 
+      r.querySelectorAll('[data-i18n]').forEach(function (el) {
+        var v = I18n.t(el.getAttribute('data-i18n'));
+        if (v) el.textContent = v;
       });
+ 
+      r.querySelectorAll('[data-i18n-title]').forEach(function (el) {
+        var v = I18n.tc(el.getAttribute('data-i18n-title'), '');
+        if (v) el.title = v;
+      });
+ 
+      r.querySelectorAll('[data-i18n-placeholder]').forEach(function (el) {
+        var v = I18n.tc(el.getAttribute('data-i18n-placeholder'), '');
+        if (v) el.placeholder = v;
+      });
+ 
+      var posBtn = r.getElementById ? r.getElementById('btn-posture') : null;
+      if (posBtn) posBtn.textContent = I18n.tc('posture.sit', '↕');
     },
 
     _syncPanelFrac: function () {
@@ -99,9 +89,6 @@
       var el = document.getElementById('phone');
       if (!el) return;
       if (!window.ryzaShell) { el.style.zoom = ''; return; }
-      /* MUST use innerWidth/innerHeight, never #phone.clientWidth: clientWidth
-         is already divided by the active zoom, which feeds back and
-         oscillates the scale between zoomed and 1.0 on every check. */
       var w = window.innerWidth || el.clientWidth;
       var h = window.innerHeight || el.clientHeight;
       if (!w || !h) return;
@@ -114,10 +101,25 @@
       }
     },
 
-    /* -------------------------------------------------------------- boot */
+    /* boot */
     init: function () {
-      I18n.setLang(Config.section('app').lang || 'zh');
+      (function () {
+        var saved = Config.section('app').lang;
+        if (!saved) {
+          var nav = ((navigator.language || navigator.userLanguage || '') + ',' + (navigator.languages || []).join(',')).toLowerCase();
+          if (nav.indexOf('zh-tw') !== -1 || nav.indexOf('zh-hant') !== -1) saved = 'zh-tw';
+          else if (nav.indexOf('zh') !== -1) saved = 'zh';
+          else if (nav.indexOf('ja') !== -1) saved = 'ja';
+          else if (nav.indexOf('id') !== -1) saved = 'id';
+          else if (nav.indexOf('hi') !== -1) saved = 'hi';
+          else if (nav.indexOf('pt') !== -1) saved = 'pt-br';
+          else if (nav.indexOf('en') !== -1) saved = 'en';
+          else saved = 'en';
+        }
+        I18n.setLang(saved);
+      })();
       App.applyI18n(document);
+      if (window.CheatEngine) CheatEngine.init();
       var inpEl = document.getElementById('input');
       if (inpEl) inpEl.placeholder = I18n.tc('input.hint', inpEl.placeholder);
       document.getElementById('overlay-title').classList.remove('hidden');
@@ -139,7 +141,6 @@
       App._bindOverlays();
       Game.on(function () { App.refreshHud(); App._syncOpenViews(); });
 
-      /* Ports first: they must not depend on the asset chain below succeeding. */
       App._wirePorts();
 
       Promise.all([Config.hydrate(), World.init(), VoiceBank.load(), Sound.init()]).then(function () {
@@ -150,7 +151,7 @@
         App._syncPanelFrac();
         Avatar.init(function () {
           App._loadSceneFor(st.stage, st.tod);
-          App._tickTime();          // adopt the wall/flow clock once the scene is up
+          App._tickTime();
         });
         setInterval(App._tickTime, 30000);
         document.addEventListener('visibilitychange', function () {
@@ -158,13 +159,6 @@
         });
         App.updateHud();
         App.renderWorld();
-        /* The Android shell can schedule alarms in the system: they survive the
-           process being killed and can wake the lock screen, which an in-page
-           timer cannot. When that bridge is present the native side becomes the
-           firing authority — Alarm.start stands its own tick down — and the web
-           model stays the source of truth, pushed down on every mutation.
-           The hook native calls on a foreground fire is defined before the
-           schedule is handed over; a missing hook must never cost an alarm. */
         window.RyzaAlarmNative = {
           onFire: function (a) { try { Alarm._nativeFire(a); } catch (e) {} }
         };
@@ -178,7 +172,6 @@
         App.buildSettings();
         App.buildCharaForm();
         App.renderMemory();
-        /* Official groups open on day 0 / 3 / 5 since first launch. */
         if (window.Daily && Daily.dayIndex) Welcome.bumpDay(Daily.dayIndex());
         Welcome.render(document.getElementById('welcome-body'));
         if (window.Fx) Fx.init();
@@ -198,55 +191,28 @@
           } else App.enterGame(false);
         });
       }).catch(function (e) {
-        /* Recorded as well as shown: the whole boot chain is skipped after a
-           throw, and "asset index failed" was the only clue even when the real
-           cause was a wiring call. boot_smoke asserts this is null. */
         App._bootError = e;
         App.toast('素材索引加载失败：' + e.message, true);
       });
     },
 
-    /* Every cross-module port, in one place, wired synchronously before any
-       async work starts. These are plain closures: nothing here needs the asset
-       index. They used to sit inside the asset-loading .then, so a single throw
-       anywhere in that chain left the app looking alive with no TTS, no memory
-       and no quest ports — while the .catch reported it as an asset problem
-       (boot_smoke reproduced exactly that: a stub missing one method, and the
-       whole port block was silently skipped with the suite reporting ALL PASS). */
     _wirePorts: function () {
-      /* Hand the renderer the two host capabilities it needs, so avatar.js
-         never reaches back into App (notice toasts, and which analyser to
-         read for lipsync). */
       Avatar.setNotice(App.toast);
       Avatar.setVoiceSource(function () {
         return { analyser: App._voiceAnalyser, paused: !App.audio || App.audio.paused };
       });
-      /* Memory summarises through this injected hook (memory.js then has no
-         reference to the transport layer). */
       if (Memory.setLLM) {
         Memory.setLLM(function (sys, body, opts) { return Api.complete(sys, body, opts); });
       }
-      /* 长期记忆的归纳也走玩家自己配的端点；side 请求必须 standalone，
-         否则会分走代际令牌、把玩家正在等的回复判成 STALE 丢掉。 */
       if (window.LongTerm && LongTerm.setLLM) {
         LongTerm.setLLM(function (sys, body, opts) {
           return Api.complete(sys, body, Object.assign({ standalone: true }, opts || {}));
         });
       }
-      /* Two render-layer reads that used to be hidden inside core/io modules
-         (invisible to the boundary guard, which is why --strict stayed at 0):
-         nsfw decides the variant but must not know Avatar, and api fills the
-         tag line with the on-screen face without reading Avatar's privates. */
       if (Nsfw.setSink) {
         Nsfw.setSink(function (name) {
           Avatar.setAtlasVariant(name, function () {
-            /* The model asked for a variant this outfit does not have. The
-               renderer stays silent by design, so say it here — once per
-               outfit+variant — instead of leaving a console 404 as the only
-               evidence that the toggle did nothing (issue #4). */
-            if (Avatar.takeVariantMiss && Avatar.takeVariantMiss()) {
-              App.toast(I18n.t('avatar.noVariant'), true);
-            }
+            /* noVariant toast removed — silently ignore missing alternate texture */
           });
         });
       }
@@ -256,9 +222,6 @@
                  { emotion: '', attitude: '' };
         });
       }
-      /* Presentation ports for the feature modules. Gameplay states intent;
-         this one place decides how it sounds/looks, so quests / daily /
-         world / alarm never reference App, Sound or Fx themselves. */
       if (World.setNotice) World.setNotice(App.toast);
       if (Quests.setNotice) Quests.setNotice(App.toast);
       if (Quests.setNavigator) Quests.setNavigator(function (view) { App.showView(view); });
@@ -292,19 +255,11 @@
           if (!res) return;
           if (!res.ok) { App.toast(I18n.t('dl.already')); return; }
           App.toast(I18n.t('dl.got') + res.text);
-          /* Official activity: login_streak. The mission needs 1 / 3 / 5
-             consecutive days, so record the streak itself rather than +1. */
           Welcome.mark('login_bonus', Daily.streak());
           Welcome.bumpDay(Daily.streak());
           App.refreshHud();
         });
       }
-      /* Turn owns "who is speaking". It gets the three things only this layer
-         can supply: how to synthesize (language matrix + per-mode direction),
-         how to play (the <audio> element, abortable mid-utterance), and how to
-         cancel an in-flight reply (Api's epoch). */
-      /* 本地服装导入：渲染层只收一个「贴图从哪来」的函数，不碰 IndexedDB。
-         已导入的服装在这里登记进皮肤表，重启后仍然可穿。 */
       if (window.CrfStore) {
         Avatar.setPageSource(function (skinId, pageName) {
           return CrfStore.pageUrl(skinId, pageName);
@@ -314,7 +269,7 @@
           var base = Avatar.skinsIndex || [];
           list.forEach(function (e) { base.push(e); });
           Avatar.skinsIndex = base;
-        }).catch(function () { /* 导入表坏了不影响启动 */ });
+        }).catch(function () { });
       }
       if (window.Turn) {
         Turn.setTurnCanceller(function (reason) { return Api.newTurn(reason); });
@@ -322,24 +277,12 @@
           var st2 = Config.section('state');
           var replyL = (window.Langs && Langs.llm) ? Langs.llm() : 'ja';
           var ttsL = (window.Langs && Langs.tts) ? Langs.tts() : replyL;
-          /* 防重复翻译：回复里若已经带「译文：」行，说明模型自己翻过了——
-             而 Turn 只把**她的台词**传进来（译文行不在这里），所以那条路
-             （tts.lang ≠ llm.lang 时先翻再合成）依然要跑。
-             真正要防的是「模型给了译文、客户端又翻一遍」⇒ 由下面 displayText
-             的 showOriginal 决定显示哪一份，这里只在模型没给译文时才翻。 */
           var alreadyTranslated = !!(meta && meta.translated);
-          var prep = (!alreadyTranslated && ttsL !== replyL && Api.translate)
-            ? Api.translate(text, ttsL) : Promise.resolve(text);
+          var prep = (!alreadyTranslated && ttsL !== replyL && Api.translate) ? Api.translate(text, ttsL) : Promise.resolve(text);
           return prep.then(function (t) {
-            /* Record her own line as it is voiced, so the recogniser hearing
-               it come back through the microphone is recognised as echo and
-               not as the player (web/js/echo.js). This is the single funnel
-               every synthesized line passes through. */
             if (window.Voice && Voice.noteAssistantSpeech) Voice.noteAssistantSpeech(t);
             return Api.speak(t, ttsL, (meta && meta.mode) || st2.mode, (meta && meta.emotion) || '')
               .then(function (url) {
-                /* 同一条台词只缓存一次：key = 文本 + 模式。
-                   缓存失败绝不影响播放（VoiceCache 自己吞异常）。 */
                 if (window.VoiceCache && url) {
                   try {
                     App._voiceSeq = (App._voiceSeq || 0) + 1;
@@ -357,52 +300,30 @@
         Turn.setPlayer(function (url, signal, meta) {
           return App.playSpeech(url, signal, meta && meta.fx);
         });
-        /* Synthesis failures surface here now that Turn owns the utterance
-           (the toast text is the same one speakThen used to emit). */
         Turn.on(function (ev) {
           if (ev.type !== 'error') return;
           var msg = (ev.error && ev.error.message) || '';
-          App.toast(msg === 'NO_KEY' ? I18n.t('toast.needKey')
-                : msg === 'NO_MODEL' ? I18n.t('toast.needModel')
-                : I18n.t('toast.ttsFail') + msg, true);
+          App.toast(msg === 'NO_KEY' ? I18n.t('toast.needKey') : msg === 'NO_MODEL' ? I18n.t('toast.needModel') : I18n.t('toast.ttsFail') + msg, true);
         });
       }
-      /* Voice input. The microphone needs three things only this layer has:
-         whether she is speaking (Turn), whose words came back (Echo), and
-         where an accepted transcript goes — this layer decides between
-         filling the box and sending it. */
       if (window.Voice) {
         var sttReady = function () {
           return !!String((Config.section('stt') || {}).baseUrl || '').trim();
         };
         Voice.setEcho(window.Echo);
         Voice.setSpeaker(function () { return !!(window.Turn && Turn.isSpeaking()); });
-        /* The second engine: our own capture + provider transcription. Injecting
-           it also connects it to Voice's gate, so echo suppression and the
-           half-duplex rule cover both engines instead of each growing its own. */
         Voice.setCapture(window.Stt || null);
         Voice.setEngine(function () {
           var pref = (Config.section('stt') || {}).engine || 'auto';
           if (pref !== 'auto') return pref;
-          /* The packaged shells cannot use the browser recogniser — absent in
-             Android's WebView, backed by nothing in Electron (measured: start()
-             succeeds, `onstart` fires, then `network`). With a transcription
-             endpoint configured they go straight to our own capture instead of
-             failing once per session first. Host knowledge lives here rather
-             than in the voice layer. */
-          var shell = !!window.ryzaShell ||
-                      /Android/i.test((navigator && navigator.userAgent) || '');
+          var shell = !!window.ryzaShell || /Android/i.test((navigator && navigator.userAgent) || '');
           return (shell && sttReady()) ? 'capture' : 'auto';
         });
         Voice.setTranscriberReady(sttReady);
         Voice.setLang(function () {
-          var lg = (window.Langs && Langs.voice && Langs.voice())
-              || (window.Langs && Langs.llm && Langs.llm()) || 'ja';
-          /* The recogniser wants BCP-47; i18n.js owns that mapping. */
+          var lg = (window.Langs && Langs.voice && Langs.voice()) || (window.Langs && Langs.llm && Langs.llm()) || 'ja';
           return (window.Langs && Langs.sttTag) ? Langs.sttTag(lg) : lg;
         });
-        /* One notice handler for both engines — stt.js reports through the same
-           codes, and the two must not drift into different toasts. */
         App._micNotice = function (code, isErr) {
           var c = String(code || '');
           if (c === 'mic.on' || c === 'mic.off' || c === 'mic.empty') return;
@@ -417,26 +338,15 @@
         if (window.Stt) {
           Stt.setTranscriber(function (blob, opts) { return Api.transcribe(blob, opts); });
           Stt.setNotice(App._micNotice);
-          /* The transcribe request takes a plain language code (api.js maps it
-             to ISO-639-1), not the recogniser's BCP-47 tag. */
           Stt.setLang(function () {
             return (window.Langs && Langs.voice && Langs.voice()) ||
                    (window.Langs && Langs.llm && Langs.llm()) || 'ja';
           });
         }
         Voice.setSink(function (text) { App._onVoiceTranscript(text); });
-        /* Onset barge-in, off by default: the recogniser cannot tell her
-           voice from the player's, so on a setup without echo cancellation
-           she would cut herself off. App wires it only when the player asked
-           for it (settings → app.bargeIn). */
         Voice.setBargeIn(null);
         if (window.Turn) {
           Turn.on(function (ev) {
-            /* She stopped: keep the microphone deaf for a moment (the tail of
-               her audio is still in the room and in the recogniser buffer).
-               The reason is passed through because a user barge-in must NOT
-               arm that cooldown — it would swallow the player's interruption
-               itself. */
             if (ev.type === 'end' || ev.type === 'cancel') Voice.noteAssistantSpeechEnded(ev.reason);
             if (ev.type === 'speak') Voice.noteAssistantSpeechStarted();
             if (ev.type === 'state' || ev.type === 'end' || ev.type === 'cancel') App._syncMic();
@@ -453,8 +363,6 @@
       var st = Config.section('state');
       Sound.setPlace(st.stage, st.tod, World.backgroundFor(st.stage));
       Sound.setRoute('talk');
-      /* 幂等：跳过问卷与教程结束都会走到这里。重复进入时只补一次
-         「已经在游戏里」的副作用（音景/路线），弹窗类不再重放。 */
       var firstEntry = !App._entered;
       App._entered = true;
       if (firstEntry) {
@@ -472,21 +380,16 @@
         Config.set('state.day', (st.day || 1) + 1);
       }
       if (st.lastDayDate !== today) Config.set('state.lastDayDate', today);
-      Daily.load();                       /* breaks the streak if too long a gap */
+      Daily.load();
       App._dailyBadge();
     },
 
     _dailyNudge: function () {
       Daily.load();
       if (!Daily.available()) return;
-      /* 「每日登录」提醒只弹一次：enterGame 可能被二次进入（跳过问卷 + 教程结束
-         都会走到那里），没有这个闸门时同一句提示会叠成两个 toast
-         —— 走查截图里抓到过。 */
       if (App._nudged) return;
       App._nudged = true;
-      /* stagger after the AI-disclosure toast so the two don't stack */
       setTimeout(function () {
-        /* 教程途中不打扰：玩家还没进主界面，这时提示只会挡视线 */
         if (App._inTutorial) return;
         App.toast(I18n.t('dl.title') + ' · ' + I18n.t('dl.cta'));
       }, 3200);
@@ -508,23 +411,17 @@
       if (curtain) curtain.classList.add('on');
       var bg = World.backgroundFor(stageId);
       Avatar.loadScene(bg, tod, function (err) {
-        if (err) { /* stage without a built scene is fine — bg stays dark */ }
+        if (err) { }
         setTimeout(function () {
           if (curtain) curtain.classList.remove('on');
         }, 280);
-        /* Sit/stand is a per-stage choice: walking away returns to the source
-           default (standing). Avatar owns the rule; the chip itself now
-           depends on the OUTFIT (both variants must exist), not on the scene —
-           see Avatar.postureSwitchable. */
         if (window.Avatar && Avatar.shouldResetPosture && Avatar.shouldResetPosture()) {
           Config.set('state.posture', 'posture_standing');
         }
-        App.updateHud();   /* posture chip visibility follows the worn outfit */
+        App.updateHud();
       });
     },
 
-    /* touch_ripple_overlay (source module): a light ring where the avatar
-       was tapped, under the reaction voice. */
     _ripple: function (x, y) {
       var layer = document.getElementById('ripple-layer');
       if (!layer) return;
@@ -536,7 +433,7 @@
       setTimeout(function () { if (el.remove) el.remove(); }, 720);
     },
 
-    /* ------------------------------------------------------------ chrome */
+    /* chrome */
     _bindChrome: function () {
       var drawer = document.getElementById('drawer');
       var scrim = document.getElementById('scrim');
@@ -592,10 +489,6 @@
         };
       });
 
-      /* Official voice/text pill (2026-09-07 UI pass): it toggles state.style
-         (voice ↔ text), exactly like the shipped screenshots — orange speaker
-         「ボイス」 while she talks, dark document 「テキスト」 in text mode.
-         The master mute stays where it always was: settings → app.voice. */
       var vbtn = document.getElementById('btn-voice');
       var vcanvas = document.getElementById('lottie-voice');
       var vsync = function () {
@@ -621,9 +514,7 @@
       };
       App._syncVoicePill = vsync;
       vsync();
-
-      /* » — the official right side menu. Each row jumps to the screen the
-         source names: shop/skin/save/fullscreen/chara-toggle/settings/map. */
+      
       var side = document.getElementById('side-menu');
       var sideClose = function (fn) {
         return function () {
@@ -634,9 +525,6 @@
       };
       document.getElementById('btn-expand').onclick = function () {
         side.classList.toggle('open');
-        /* 官方：侧栏打开时右侧只剩菜单本身（截图对照过），
-           而我们的快捷钮列原来会叠在菜单项上。用 body 上的类切换显隐，
-           样式规则放在 CSS 里（不在 JS 里写内联样式）。 */
         document.body.classList.toggle('side-open', side.classList.contains('open'));
       };
       document.addEventListener('click', function (e) {
@@ -648,16 +536,12 @@
       document.getElementById('sm-shop').onclick = sideClose(function () { App.showView('quest'); });
       document.getElementById('sm-skin').onclick = sideClose(function () { App.showView('skin'); });
       document.getElementById('sm-save').onclick = sideClose(function () {
-        /* the save slots live at the bottom of the player-profile form */
         App.showView('chara');
       });
       document.getElementById('sm-full').onclick = sideClose(function () { App._toggleFullscreen(); });
       document.getElementById('sm-chara').onclick = sideClose(function () { App._toggleChara(); });
       document.getElementById('sm-settings').onclick = sideClose(function () { App.showView('settings'); });
       document.getElementById('sm-map').onclick = sideClose(function () { App.showView('world'); });
-
-      /* Posture button — visible only on stages whose scene lists both sitting
-         and standing midgroundPostures (e.g. stage_01_002_01). */
       var postureBtn = document.getElementById('btn-posture');
       if (postureBtn) postureBtn.onclick = function () {
         App.setPosture(Avatar.postureKey() === 'posture_standing'
@@ -665,30 +549,22 @@
       };
       var skinBtn = document.getElementById('btn-chara-skin');
       if (skinBtn) skinBtn.onclick = function () { App.showView('skin'); };
-      /* place / tod / mode / map now live inside the mode sheet (the » row
-         of chips under the pills) */
       var hudMode = document.getElementById('hud-mode');
       if (hudMode) hudMode.onclick = function () { /* current-mode label */ };
       document.getElementById('hud-place').onclick = function () { App.showView('world'); };
       document.getElementById('btn-map').onclick = function () { App.showView('world'); };
       document.getElementById('btn-quest-sheet').onclick = function () { App.showView('quest'); };
-      /* ⇧ — official behaviour: collapse the conversation area down to the
-         input row (the whole stage opens up), tap again to bring it back.
-         The running transcript (talk_conversation_log) opens by tapping the
-         line itself. */
       var logT = document.getElementById('btn-log-toggle');
       if (logT) logT.onclick = function () {
         var phone = document.getElementById('phone');
         var open = phone.classList.toggle('panel-collapsed');
         var arrow = document.querySelector('#btn-log-toggle img');
         if (arrow) arrow.style.transform = open ? 'rotate(180deg)' : '';
-        /* no camera re-solve — the window is frozen (see _syncPanelFrac) */
       };
       var spd = document.getElementById('btn-speed');
       if (spd) spd.onclick = function () { App._cycleTextSpeed(); };
       var nt = document.getElementById('btn-newtalk');
       if (nt) nt.onclick = function () { App._confirmNewTalk(); };
-      /* tapping her name/subtitle opens the mode sheet (mode lives there now) */
       var logHead = document.getElementById('log-head');
       if (logHead) logHead.onclick = function () {
         document.getElementById('sheet-mode').classList.toggle('hidden');
@@ -720,8 +596,6 @@
         }
       };
       document.getElementById('world-area').onchange = function (e) {
-        /* 地图模式下切区域要留在地图上。原来这里直接调 World.jumpArea，
-           而它是**列表**渲染器 —— 于是「切了区域就自动跳回列表」。 */
         if (window.WorldMap && WorldMap.mode === 'map') {
           WorldMap.areaId = e.target.value;
           WorldMap.reset();
@@ -739,8 +613,6 @@
         });
       };
       document.getElementById('btn-alarm-new').onclick = function () { App._newAlarm(); };
-      /* area_bottom_sheet.dart: who is around at the level you're looking at. */
-      /* 玩家缩放：按钮 + 滚轮。只放大，复位键回 1.0。 */
       var rp = document.getElementById('btn-replay');
       if (rp) rp.onclick = function () { App.replayLastVoice(); };
       var vf = document.getElementById('btn-voicefav');
@@ -763,7 +635,7 @@
       var stageEl = document.getElementById('stage');
       if (stageEl) {
         stageEl.addEventListener('wheel', function (ev) {
-          if (!App._viewIsTalk()) return;          /* 只在对话页响应滚轮 */
+          if (!App._viewIsTalk()) return; /* 只在对话页响应滚轮 */
           ev.preventDefault();
           Avatar.zoomBy(ev.deltaY < 0 ? Avatar.PLAYER_ZOOM_STEP : -Avatar.PLAYER_ZOOM_STEP);
         }, { passive: false });
@@ -872,6 +744,8 @@
       }
       var d = document.getElementById('view-daily');
       if (d && d.classList.contains('active')) Daily.render(document.getElementById('daily-body'));
+      var wv = document.getElementById('view-world');
+      if (wv && wv.classList.contains('active')) App.renderWorld();
       if (!document.getElementById('sheet-status').classList.contains('hidden')) App.renderStatus();
       if (!document.getElementById('sheet-inv').classList.contains('hidden')) App.renderInv();
       App.refreshHud();
@@ -1328,6 +1202,26 @@
           if (sheet) sheet.classList.add('hidden');
         };
       });
+
+      /* Close-button (×) inside each sheet header */
+      document.querySelectorAll('.sheet-close-btn').forEach(function (btn) {
+        btn.onclick = function () {
+          var sheet = btn.closest('.sheet');
+          if (sheet) sheet.classList.add('hidden');
+        };
+      });
+
+      /* Click outside an open sheet to close it */
+      document.addEventListener('click', function (e) {
+        if (e.target.closest('.sheet') || e.target.closest('#btn-log-toggle') ||
+            e.target.closest('#hud-stamina') || e.target.closest('#hud-money') ||
+            e.target.closest('#hud-level') || e.target.closest('#hud-inv') ||
+            e.target.closest('#log-head') || e.target.closest('#btn-world-people') ||
+            e.target.closest('#btn-quest-sheet') || e.target.closest('.side-item')) return;
+        document.querySelectorAll('.sheet:not(.hidden)').forEach(function (s) {
+          s.classList.add('hidden');
+        });
+      }, true);
     },
 
     _showFaint: function () {
@@ -1394,9 +1288,13 @@
         d.className = 'st-sect'; d.textContent = t;
         root.appendChild(d);
       }
-      sect(I18n.t('st.level') + ' ' + Game.level());
+      var isMaxLv = !!(window.CheatEngine && CheatEngine.maxLevel && CheatEngine.maxLevel());
+      sect(I18n.t('st.level') + ' ' + Game.level() + (isMaxLv ? ' ★MAX' : ''));
       row(I18n.t('stamina') || 'スタミナ', appleHtml + ' <b>' + (Game.cheat() ? '∞' : Game.s.stamina + '/' + Game.max()) + '</b>');
-      row(I18n.t('st.exp'), e.into + ' / ' + e.span + '（' + Game.s.exp_total + '）');
+      var expDisplay = isMaxLv
+        ? '<b>∞</b> / ∞（MAX · ' + Game.s.exp_total + '）'
+        : e.into + ' / ' + e.span + '（' + Game.s.exp_total + '）';
+      row(I18n.t('st.exp'), expDisplay);
       row('G', Game.cheat() ? '∞' : String(Game.s.money));
       var q = Quests.active();
       if (q) row(I18n.t('quest.goal'),

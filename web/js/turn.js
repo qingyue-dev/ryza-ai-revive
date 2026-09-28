@@ -1,64 +1,27 @@
-/* Turn authority: who is speaking, what is queued, and what an interruption
-   cancels. One module owns that question so nothing else has to guess.
+/* Turn authority: who is speaking, what is queued, and what an interruption cancels. One module owns that question so nothing else has to guess.*/
 
-   Why it exists
-   -------------
-   Speech used to be fire-and-forget: speakThen got a blob URL and handed it to
-   App.playUrl, which set <audio>.src and returned. There was no way to stop an
-   utterance half-way, and nothing that could say "she is talking right now" —
-   so lip sync, the bubble lifetime and the ASMR playback rate each tracked it
-   separately (AUDIT 8 documents the rate-reset bug that produced). Interruption
-   needs all of that to end together.
-
-   Semantics (intent model)
-   ------------------------
-   * Every utterance is an intent with `priority` (number) and `behavior`:
-       'queue'     — wait for the current utterance to finish
-       'interrupt' — cut in, but only if priority >= the active intent's
-       'replace'   — always cut in (used by UI previews / alarms)
-   * One intent is active at a time; the rest wait in order.
-   * cancelIntent(id) / interrupt() / stopAll() are the three stops, matching
-     @proj-airi/pipelines-audio's vocabulary.
-
-   Semantics (cancellation)
-   ------------------------
-   An interruption cancels the pending reply, not just the audio: the epoch is
-   bumped (api.js aborts the in-flight XHR) and a reply that resolves after the
-   bump is STALE and never reaches the caller. `beginTurn` and `interrupt` are
-   both that exit. NOTE: the epoch covers the chat request only — an in-flight
-   *TTS* request is not aborted (Api.speak takes no signal), so an interrupt
-   during synthesis still pays for that request; the blob is discarded when it
-   arrives. Threading the signal into Api.speak/translate is a known follow-up,
-   not something this comment should claim.
-
-   Ports are injected, so this module knows nothing about transport or
-   rendering — same convention as avatar.setNotice / memory.setLLM /
-   quests.setPresenter. Everything defaults to inert, which is what lets
-   scripts/voice_regression.js drive it headlessly and deterministically.
-*/
 (function (global) {
   'use strict';
 
   var IDLE = 'idle', THINKING = 'thinking', SPEAKING = 'speaking';
 
-  var _synth = null;      /* fn(text, meta, signal) -> Promise<url|null> */
-  var _player = null;     /* fn(url, signal, meta) -> Promise           */
-  var _cancelTurn = null; /* fn(reason) -> epoch                       */
+  var _synth = null; /* Promise<url|null> */
+  var _player = null; /* Promise */
+  var _cancelTurn = null; /* epoch */
+  
   var _subs = [];
 
   var _state = IDLE;
   var _epoch = null;
-  var _active = null;     /* { id, priority, ownerId, controller, signal, meta } */
+  var _active = null; /* { id, priority, ownerId, controller, signal, meta } */
   var _waiting = [];
   var _seq = 0;
-  /* Cancelled intent ids, so the abort settlement that follows a cancel does
-     not emit a second `end` for an utterance already reported as cancelled
-     (that duplicate re-armed the microphone cooldown twice). */
+
   var _cancelled = {};
 
   function emit(ev) {
     _subs.slice().forEach(function (f) {
-      try { f(ev); } catch (e) { /* a listener must never break the turn */ }
+      try { f(ev); } catch (e) { /* a listener */ }
     });
   }
 
@@ -68,9 +31,7 @@
     emit({ type: 'state', state: s });
   }
 
-  /* AbortController is not guaranteed in every host the regressions stub, so
-     fall back to a signal-shaped object that only ever reports "not aborted".
-     Interruption still works there because stopAll() drops the intent. */
+  /* AbortController is not guaranteed in every host the regressions stub, so fall back to a signal-shaped object that only ever reports "not aborted". Interruption still works there because stopAll() drops the intent. */
   function makeSignal() {
     if (typeof global.AbortController === 'function') {
       var c = new global.AbortController();
@@ -105,13 +66,7 @@
     return true;
   }
 
-  /* The queue advances through exactly one path, so "the active intent ended"
-     and "the active intent was cancelled" cannot diverge — A7 in
-     scripts/voice_regression.js is the assertion that caught them diverging.
-     Re-entrancy: `finish` emits `end` before promoting, and a listener is
-     allowed to start something new from that event (proactive.js will). If it
-     did, the new intent is already playing and must not be replaced by a
-     queued one. */
+  /* The queue advances through exactly one path, so "the active intent ended" and "the active intent was cancelled" cannot diverge — A7 in scripts/voice_regression.js is the assertion that caught them diverging.*/
   function promote() {
     if (_active) return false;
     var next = _waiting.shift();
@@ -121,10 +76,8 @@
   }
 
   function finish(id, reason) {
-    /* Already reported as cancelled: the player settling after the abort is
-       not a second end. */
     if (_cancelled[id]) { delete _cancelled[id]; return; }
-    if (_active && _active.id !== id) return;   /* superseded already */
+    if (_active && _active.id !== id) return;
     _active = null;
     emit({ type: 'end', reason: reason, intentId: id });
     promote();
@@ -154,8 +107,6 @@
     }
 
     Promise.resolve(out).then(function (url) {
-      /* The intent died while synthesis was in flight: throw the blob away
-         instead of playing it (this is the "she stops mid-sentence" path). */
       if (made.signal.aborted) { revoke(url); return; }
       if (!url || !_player) { finish(intent.id, url ? 'no-player' : 'no-audio'); return; }
       setState(SPEAKING);
@@ -169,12 +120,7 @@
     });
   }
 
-  /* Start of a user turn: whatever she was saying (and everything queued
-     behind it) is superseded, and the caller gets the epoch to hand to
-     Api.chat. Returns null when no canceller was injected — callers then
-     just let Api allocate its own epoch. (It used to return a locally invented
-     1 in that case, which Api.chat would compare against its own 0 and judge
-     STALE, silently discarding the first reply.) */
+  /* Start of a user turn: whatever she was saying*/
   function bumpEpoch(reason) {
     _epoch = _cancelTurn ? _cancelTurn(reason) : null;
     return _epoch;
@@ -270,8 +216,7 @@
       return had;
     },
 
-    /* Cut everything: current + queued. This is what a barge-in and a new user
-       turn both use. */
+    /* Cut everything: current + queued. This is what a barge-in and a new user turn both use. */
     stopAll: function (reason) {
       var had = cancelActive(reason || 'stop-all');
       var dropped = _waiting.length;

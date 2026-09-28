@@ -1,12 +1,5 @@
-/* Two-layer conversation memory. Independent of Game.s.memory (adventure
-   log) and App.memory (raw diary the player can still browse).
+/* Two-layer conversation memory. Independent of Game.s.memory (adventure log) and App.memory (raw diary the player can still browse).*/
 
-   sessions  = one card per window of recent turns
-   summaries = cards made from sessions; when this layer hits its cap, those
-               cards fold into ONE new card still on this layer
-
-   Prompt order is summaries then sessions (stable prefix, new session
-   appended at the end) so prefix-cache hits survive a new 会话. */
 (function (global) {
   'use strict';
 
@@ -79,24 +72,19 @@
   function fallbackText(items) {
     return items.map(function (it) {
       if (it.text) return it.text;
-      var who = it.role === 'user' ? '君' : 'ライザ';
+      var who = it.role === 'user' ? 'You' : 'Ryza';
       return who + '：' + clip(it.content || it.text || '');
     }).join(' / ').slice(0, 800);
   }
 
   function formatPending(pending) {
     return pending.map(function (t) {
-      var who = t.role === 'user' ? '君' : 'ライザ';
+      var who = t.role === 'user' ? 'You' : 'Rzya';
       return who + '：' + clip(t.text);
     }).join('\n');
   }
 
-  /* Test seam: tests assign a sync function (see scripts/memory_regression.js).
-     It short-circuits the prompt/LLM path entirely. */
   var _summarizer = null;
-  /* The LLM call itself is injected by the host (app.js wires Api.complete) so
-     this module never reaches into the transport layer — that reference used
-     to make api.js <-> memory.js a two-way dependency. */
   var _llm = null;
 
   function summarize(items, kind) {
@@ -107,8 +95,7 @@
     var body = kind === 'pending'
       ? formatPending(items)
       : items.map(function (it) { return '・' + it.text; }).join('\n');
-    var sys = '会話記憶の要約者。与えられた内容を短い箇条書き1本にまとめる。' +
-              '固有名詞・約束・感情の変化を残す。タグもJSONも出力しない。200字以内。';
+    var sys = 'Conversation memory summarizer. Summarize the provided content into one short bullet point. ' + 'Preserve proper nouns, commitments, and emotional changes. ' + 'Do not output tags or JSON. Keep the output within 200 characters.';
     if (typeof _llm === 'function') {
       try {
         return Promise.resolve(_llm(sys, body, { maxTokens: 280, temperature: 0.2 }))
@@ -201,7 +188,6 @@
     },
     reset: function () { state = blank(); persist(); },
 
-    /* One user+assistant exchange. Never throws into the talk loop. */
     ingest: function (userText, assistantText) {
       try {
         if (!cfg().enabled) return;
@@ -221,7 +207,6 @@
       }).catch(function () {});
     },
 
-    /* Context nearly full: dump pending so the next turn's near-window shrinks. */
     notifyPressure: function () {
       try { Memory.flushNow(); } catch (e) {}
     },
@@ -276,11 +261,10 @@
       return c;
     },
 
-    /* Highest layer first, newest session last — prefix-cache friendly. */
     promptBlock: function () {
       if (!cfg().enabled) return '';
       if (!state.summaries.length && !state.sessions.length) return '';
-      var L = ['## 長期記憶（下ほど新しい。事実だけ参照）'];
+      var L = ['## Long-Term Memory (newer entries are lower; refer to facts only)'];
       state.summaries.forEach(function (c) { L.push('- ' + c.text); });
       state.sessions.forEach(function (c) { L.push('- ' + c.text); });
       return L.join('\n');
@@ -288,8 +272,6 @@
 
     setSummarizer: function (fn) { _summarizer = fn; },
 
-    /* Host-injected summarisation call: fn(systemPrompt, body, opts) -> text.
-       Left unset, summaries fall back to plain listing (never throws). */
     setLLM: function (fn) { _llm = (typeof fn === 'function') ? fn : null; }
   };
 

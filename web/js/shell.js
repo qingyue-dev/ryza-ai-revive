@@ -1,5 +1,6 @@
 /* Frameless-window controls for the desktop (Electron) shell.
    Browser / Android builds never see window.ryzaShell, so nothing shows. */
+   
 (function (global) {
   'use strict';
   if (!global.ryzaShell) return;
@@ -20,9 +21,9 @@
       ctl.appendChild(b);
       return b;
     };
-    var pin = mk('win-pin', '📌', '窗口置顶');
-    var min = mk('win-min', '—', '最小化');
-    var cls = mk('win-close', '✕', '关闭');
+    var pin = mk('win-pin', '📌', 'Pin');
+    var min = mk('win-min', '—', 'Minimize');
+    var cls = mk('win-close', '✕', 'Close');
     var settingsBtn = document.getElementById('btn-settings');
     if (settingsBtn && settingsBtn.parentNode === bar) {
       bar.insertBefore(ctl, settingsBtn.nextSibling);
@@ -39,7 +40,6 @@
     cls.onclick = function () { global.ryzaShell.close(); };
     global.ryzaShell.isTopmost().then(function (on) { pin.classList.toggle('on', !!on); });
 
-    /* Drag the frameless window by the HUD strip; buttons stay clickable. */
     document.body.classList.add('shell-electron');
   }
 

@@ -1,48 +1,30 @@
 /* Game state (source: features/talk/models/game_states.dart +
-   state_updated_reducer.dart + game_state_authority_mirror.dart).
-
-   The original kept this server-authoritative; the delta keys below are the
-   real wire names recovered from the AOT snapshot:
-     stamina_delta · exp_total · money_delta · inventory_added/removed ·
-     ryza_inventory_added/removed · met_charas · met_pairs · memory
-   The <state> protocol also accepts exp_delta / memory_add / met_chara_add /
-   tod / sleep / quest{...} — those are LOCAL extensions (the official wire
-   went over the marionette websocket, whose shapes are not in the package).
-   Here the state lives in localStorage and is reduced from two channels:
-   deterministic quest actions (quests.js) and the player's own LLM replying
-   with a trailing <state>{...}</state> block (api.js).
-
-   Stamina is shown as apples (stamina_apple_filled/empty.svg — the official
-   StaminaAppleRow), and its cap grows with total EXP
-   (`staminaMaxForExpTotal`). Out of stamina Ryza faints
-   ("無くなると気絶しちゃうから / 安全な場所で寝ると回復するよ").
-   A single 作弊模式 switch (settings → app.cheat) makes stamina and gold
-   infinite. Map locks, bags, quests and daily login stay as they are. */
+   state_updated_reducer.dart + game_state_authority_mirror.dart).*/
+   
 (function (global) {
   'use strict';
 
   var KEY = 'ryza.game.v1';
-  var APPLE_SLOTS = 5;                    /* StaminaAppleRow length */
-
-  /* Item registry: id -> display name + gold value + kind. Names follow the
-     game's own register (talk.initialGameState.ryzaInventory style). */
+  var APPLE_SLOTS = 5;
+  
   var ITEMS = {
-    emeralia:  { name: 'エメラリア草',   value: 12,  kind: 'mat' },
-    uni:       { name: 'うに',           value: 18,  kind: 'mat' },
-    wasser:    { name: '蒸留水',         value: 6,   kind: 'mat' },
-    honey:     { name: '森のはちみつ',   value: 22,  kind: 'mat' },
-    shell:     { name: '輝きの貝殻',     value: 16,  kind: 'mat' },
-    ore:       { name: '魔石鉱のかけら', value: 30,  kind: 'mat' },
-    mushroom:  { name: '元気茸',         value: 20,  kind: 'mat' },
-    driftwood: { name: '漂流WOOD',       value: 25,  kind: 'part' },
-    ironwood:  { name: '堅鉄の木目',     value: 45,  kind: 'part' },
-    cloth:     { name: '帆布布切れ',     value: 35,  kind: 'part' },
-    bottle:    { name: '回復のボトル',   value: 60,  kind: 'tool', stamina: 25 },
-    bomb:      { name: '爆弾瓶',         value: 48,  kind: 'tool', battle: 2 },
-    charm:     { name: 'お守りの指輪',   value: 90,  kind: 'tool', battle: 3 },
-    relic:     { name: '古代の遺物',     value: 150, kind: 'treasure' },
-    apple:     { name: 'スタミナリンゴ', value: 40,  kind: 'tool', stamina: 999 }
+    emeralia: { name: 'Emeralia Grass', value: 12, kind: 'mat' },
+    uni: { name: 'Uni', value: 18, kind: 'mat' },
+    wasser: { name: 'Distilled Water', value: 6, kind: 'mat' },
+    honey: { name: 'Forest Honey', value: 22, kind: 'mat' },
+    shell: { name: 'Shining Seashell', value: 16, kind: 'mat' },
+    ore: { name: 'Magic Ore Fragment', value: 30, kind: 'mat' },
+    mushroom: { name: 'Vitality Mushroom', value: 20, kind: 'mat' },
+    driftwood: { name: 'Driftwood', value: 25, kind: 'part' },
+    ironwood: { name: 'Hard Ironwood Grain', value: 45, kind: 'part' },
+    cloth: { name: 'Sailcloth Scrap', value: 35, kind: 'part' },
+    bottle: { name: 'Healing Bottle', value: 60, kind: 'tool', stamina: 25 },
+    bomb: { name: 'Bomb Bottle', value: 48, kind: 'tool', battle: 2 },
+    charm: { name: 'Lucky Charm Ring', value: 90, kind: 'tool', battle: 3 },
+    relic: { name: 'Ancient Relic', value: 150, kind: 'treasure' },
+    apple: { name: 'Stamina Apple', value: 40, kind: 'tool', stamina: 999 }
   };
+  
   function itemName(id) {
     var base = (ITEMS[id] && ITEMS[id].name) || id;
     return (window.I18n && I18n.tc) ? I18n.tc('item.' + id, base) : base;
@@ -52,12 +34,12 @@
   /* Bag sizes are the four official labels: talk.inventory.bag.* */
   var BAGS = { small: 6, normal: 12, large: 24, huge: 40 };
   var BAG_ORDER = ['small', 'normal', 'large', 'huge'];
-  /* Upgrades cost gold — replaces the official IAP/TD path (not rebuilt). */
+
   var BAG_UPGRADE_COST = { normal: 150, large: 600, huge: 1500 };
 
   var DEFAULTS = {
     exp_total: 0,
-    stamina: -1,                          /* -1 = "full" until first spend */
+    stamina: -1,
     money: 30,
     bagYou: 'normal',
     bagRyza: 'normal',
@@ -78,15 +60,14 @@
     sailed: false
   };
 
-  /* Exp -> level. Kept simple and monotone; the official curve is server-side. */
   function levelForExp(exp) {
     return 1 + Math.floor(Math.sqrt(Math.max(0, Number(exp) || 0) / 30));
   }
-  /* The recovered symbol `staminaMaxForExpTotal` — cap grows with progress. */
+
   function staminaMaxForExpTotal(exp) {
     return Math.min(140, 50 + levelForExp(exp) * 10);
   }
-  /* Apples are display slots: 1 apple = cap / 5 rounded up. */
+ 
   function appleSize() { return Math.ceil(Game.max() / APPLE_SLOTS); }
 
   function sanitizeList(list) {
@@ -114,11 +95,6 @@
     s: null,
     _subs: [],
     ITEMS: ITEMS,
-    /* The item catalogue's two readers, exported so its name/value rules have
-       one owner. quests.js had a byte-identical copy of both, daily.js inlined
-       the localisation, and app.js's bag list skipped it altogether — so the
-       same item showed a localized name in a quest line and raw Japanese in the
-       bag. Adding an item or changing how one is displayed now happens once. */
     itemName: itemName,
     itemValue: itemValue,
     BAGS: BAGS,
@@ -130,7 +106,6 @@
       var raw = null;
       try { raw = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
       Game.s = Object.assign(JSON.parse(JSON.stringify(DEFAULTS)), raw || {});
-      /* Old saves / hand edits may carry garbage; clamp once at boot. */
       if (typeof Game.s.exp_total !== 'number' || !isFinite(Game.s.exp_total)) Game.s.exp_total = 0;
       if (typeof Game.s.money !== 'number' || !isFinite(Game.s.money)) Game.s.money = 0;
       Game.s.inventory = sanitizeList(Game.s.inventory);
@@ -161,11 +136,18 @@
 
     /* ------------------------------------------------- cheat (stamina + gold only) */
     cheat: function () {
+      if (window.CheatEngine) return CheatEngine.master();
       return !!(window.Config && Config.section('app').cheat);
     },
+    cheatFreeBuy:  function () { return !!(window.CheatEngine && CheatEngine.freeBuy()); },
+    cheatFreeQuest: function () { return !!(window.CheatEngine && CheatEngine.freeQuest()); },
+    cheatCurrency: function () { return !!(window.CheatEngine && CheatEngine.unlimCurrency()); },
+    cheatStamina: function () { return !!(window.CheatEngine && CheatEngine.unlimStamina()); },
+    cheatMaxLv: function () { return !!(window.CheatEngine && CheatEngine.maxLevel()); },
+    cheatMap: function () { return !!(window.CheatEngine && CheatEngine.unlockMap()); },
 
     /* -------------------------------------------------------- level curve */
-    level: function () { return levelForExp(Game.s.exp_total); },
+    level: function () { return Game.cheatMaxLv() ? 99 : levelForExp(Game.s.exp_total); },
     max: function () { return staminaMaxForExpTotal(Game.s.exp_total); },
     expIntoLevel: function () {
       var e = Game.s.exp_total;
@@ -181,14 +163,12 @@
       if (Game.cheat()) filled = APPLE_SLOTS;
       return { filled: Math.min(APPLE_SLOTS, filled), slots: APPLE_SLOTS, size: size };
     },
-    /* One chat turn: voice costs more than text (turn-price table stand-in),
-       heavy RP modes cost more than plain chat. */
     turnCost: function (mode, style) {
       if (Game.cheat()) return 0;
       var c = 1;
       if (mode === 'story' || mode === 'immersive') c = 2;
       if (mode === 'asmr') c = 3;
-      if (style !== 'text') c += 1;                 /* voice playback costs 1 extra */
+      if (style !== 'text') c += 1;
       return c;
     },
     canAct: function (cost) {
@@ -196,7 +176,7 @@
     },
     spend: function (cost, reason) {
       cost = Math.max(0, cost | 0);
-      if (!cost || Game.cheat()) return true;
+      if (!cost || Game.cheat() || Game.cheatFreeBuy()) return true;
       if (Game.s.stamina < cost) return false;
       Game.s.stamina -= cost;
       Game.save();
@@ -213,19 +193,19 @@
       Game.save();
       Game.emit('stamina');
     },
-    faint: function () { return !Game.cheat() && Game.s.stamina <= 0; },
+    faint: function () { return !Game.cheat() && !Game.cheatStamina() && Game.s.stamina <= 0; },
 
     /* ---------------------------------------------------------- economy */
     addMoney: function (n) {
       n = Number(n) || 0;
-      if (Game.cheat() && n < 0) return;
+      if ((Game.cheat() || Game.cheatStamina()) && n < 0) return;
       Game.s.money = Math.max(0, Math.round((Game.s.money || 0) + n));
       Game.save();
       Game.emit('money');
     },
     canPay: function (cost) {
       cost = Math.max(0, cost | 0);
-      return Game.cheat() || Game.s.money >= cost;
+      return Game.cheat() || Game.cheatCurrency() || Game.s.money >= cost;
     },
     addExp: function (n) {
       var before = Game.level();
@@ -234,8 +214,7 @@
       if (after > before) {
         /* cap grows with level: give the new headroom (official feels the same) */
         Game.s.stamina = Util.clamp(Game.s.stamina + 10 * (after - before), 0, Game.max());
-        Game.remember(I18n.tf ? I18n.tf('mem.lv', 'Lv{lv} reached!', { lv: after })
-                              : 'Lv' + after + ' reached!');
+        Game.remember(I18n.tf ? I18n.tf('mem.lv', 'Lv{lv} reached!', { lv: after }) : 'Lv' + after + ' reached!');
       }
       Game.save();
       Game.emit('exp');
@@ -419,16 +398,15 @@
         if (!list.length) return '（空）';
         return list.map(function (x) { return itemName(x.id) + '×' + x.count; }).join('、');
       };
-      L.push('## ゲーム状態');
-      L.push('- レベル ' + Game.level() + '（累計経験値 ' + s.exp_total + '）');
-      L.push('- スタミナ ' + (Game.cheat() ? '∞' : (s.stamina + '/' + Game.max())) +
-             '：活動や戦闘で減る。ゼロだとあたしは気絶しちゃう。');
-      L.push('- 所持金 ' + (Game.cheat() ? '∞' : (s.money + 'G')) + '（この世界のお金）');
-      L.push('- あなたのバッグ：' + invBrief(s.inventory));
-      L.push('- あたしのバッグ：' + invBrief(s.ryza_inventory));
-      L.push('- 出会った人々 ' + s.met_charas.length + ' 人');
+      L.push('## Game State');
+      L.push('- Level ' + Game.level() + ' (Total EXP ' + s.exp_total + ')');
+      L.push('- Stamina ' + (Game.cheat() ? '∞' : (s.stamina + '/' + Game.max())) + ': Decreases through activities and battles. If it reaches zero, I’ll pass out.');
+      L.push('- Money ' + (Game.cheat() ? '∞' : (s.money + 'G')) + ' (Currency used in this world)');
+      L.push('- Your Bag: ' + invBrief(s.inventory));
+      L.push('- My Bag: ' + invBrief(s.ryza_inventory));
+      L.push('- People Met: ' + s.met_charas.length);
       if (s.memory.length) {
-        L.push('- 記憶（抜粋）：' + s.memory.slice(-6).map(function (m) { return m.text; }).join(' / '));
+        L.push('- Memories (Excerpt): ' + s.memory.slice(-6).map(function (m) { return m.text; }).join(' / '));
       }
       return L.join('\n');
     },

@@ -1,8 +1,5 @@
-/* World map / RPG layer.
-
-   Layout: world_hierarchy.json (5 areas -> 38 fields -> 120 stages).
-   Presence: npc_placement.json — bases(%) + move%(area/field/stage) + companions(%).
-   Resolved in resolveOrder, deterministic per (npc, day). */
+/* World map / RPG layer.*/
+   
 (function (global) {
   'use strict';
 
@@ -16,13 +13,10 @@
     char: 'assets/world_map/ui/char_pin.svg'
   };
 
-  /* Host-injected notice sink (see scripts/layering_check.js): the map's own
-     view code must not reach into App just to say "locked". Inert by default
-     so world.js still loads standalone. */
   var _notice = null;
   function notify(msg, isErr) {
     if (!_notice) return;
-    try { _notice(msg, !!isErr); } catch (e) { /* never break the map */ }
+    try { _notice(msg, !!isErr); } catch (e) { }
   }
 
   var World = {
@@ -107,28 +101,20 @@
       return TODS[(TODS.indexOf(tod) + 1) % TODS.length];
     },
 
-    /* ---------------------------------------------------------- time-of-day
-       Band boundaries live in Util (Util.hourToTod) — the single source shared
-       with the alarm voice table, so the scene, the greeting voice and the
-       light can no longer disagree on when 朝/昼/夕/夜 start. */
     hourToTod: function (h) {
       return Util.hourToTod(h);
     },
-    /* Official AppServerClock: scene.time_bucket is a FACT pushed TO marionette,
-       never a command FROM it. Only the local 'flow' clock lets the LLM dial time. */
+
     llmDrivesClock: function () {
       try {
         return !!(global.Config && Config.section('app').timeMode === 'flow');
       } catch (e) { return false; }
     },
-    /* representative hour at the start of a band — used when the LLM or the
-       manual button SETS a band in flow mode and the game clock must snap */
+    
     todStartHour: function (tod) {
       return Util.todStartHour(tod);
     },
-    /* pure flow-clock advance: gameHour after `speed` in-game minutes pass per
-       real minute, measured from gameClockAt to nowMs. speed=60 ⇒ 1 real min =
-       1 game hour (a full in-game day every 24 real minutes). */
+
     flowHour: function (gameHour, gameClockAt, nowMs, speed) {
       var h = Number(gameHour);
       if (!(h >= 0 && h < 24)) h = 12;
@@ -140,7 +126,6 @@
       return ((h % 24) + 24) % 24;
     },
 
-    /* ------------------------------------------------------------- RNG */
     _hash: function (str) {
       var h = 2166136261, i;
       for (i = 0; i < str.length; i++) {
@@ -178,7 +163,6 @@
       return null;
     },
 
-    /* bases → home, then mutually exclusive area/field/stage drift. */
     _drift: function (homeId, move, npcId, day) {
       var home = World.find(homeId);
       if (!home) return homeId;
@@ -209,7 +193,6 @@
       return homeId;
     },
 
-    /* Map of npcId -> stageId for a given day. */
     placement: function (day) {
       day = day || 1;
       if (World._placeCache[day]) return World._placeCache[day];
@@ -265,7 +248,6 @@
       return out;
     },
 
-    /* area_bottom_sheet.dart needs "who is in this area right now". */
     npcsInArea: function (areaId, day) {
       var out = {};
       World.fields(areaId).forEach(function (f) {
@@ -284,8 +266,6 @@
       return 'assets/images/chara_icons/' + (aliases[key] || key) + '.png';
     },
 
-    /* display-name localization (ja is the shipped data, i18n CONTENT has
-       official-style zh / en names) */
     npcName: function (npcId) {
       var hit = ((World.npcs && World.npcs.npcs) || []).filter(function (n) { return n.id === npcId; })[0];
       var base = hit ? hit.name : npcId;
@@ -296,20 +276,16 @@
       return (window.I18n && I18n.tc) ? I18n.tc('place.' + id, base) : base;
     },
 
-    /* Player/LLM colloquialisms → official stage ids. Keys are _fold()'d.
-       Only shortenings of names that exist in the pack (or "go home"). */
     TALK_ALIASES: {
-      'home': 'stage_01_001_04',
-      'おうち': 'stage_01_001_04',
-      'うち': 'stage_01_001_04',
-      '回家': 'stage_01_001_04',
-      '家里': 'stage_01_001_04',
-      '回家睡觉': 'stage_01_001_04',
-      '莱莎的家': 'stage_01_001_04',
-      'ライザの家': 'stage_01_001_04',
-      '塔奥家': 'stage_01_002_01',
-      'タオの家': 'stage_01_002_01',
-      'tao': 'stage_01_002_01'
+      'Home': 'stage_01_001_04',
+      'My Home': 'stage_01_001_04',
+      'Go Home': 'stage_01_001_04',
+      'Home To Sleep': 'stage_01_001_04',
+      "Ryza's Home": 'stage_01_001_04',
+      "Ryza's House": 'stage_01_001_04',
+      "Tao's Home": 'stage_01_002_01',
+      "Tao's House": 'stage_01_002_01',
+      'Tao': 'stage_01_002_01'
     },
 
     isTod: function (t) { return TODS.indexOf(t) >= 0; },
@@ -333,10 +309,6 @@
       return out;
     },
 
-    /* Talk-side map move (source: entry_map_move.dart / detectEntryMapMove /
-       scene.current_stage). Resolves a stage id, a field/area id, or a
-       displayed name in any shipped language. Locked areas still resolve —
-       the caller decides whether to refuse. */
     resolveStage: function (token) {
       var q = String(token || '').trim();
       if (!q || !World.hierarchy) return null;
@@ -375,22 +347,18 @@
       return best;
     },
 
-    /* Facts only — how to write stage/tod lives once in api.js 出力形式. */
     promptBlock: function (st) {
       st = st || {};
       var here = World.find(st.stage);
       if (!here) return '';
-      var L = ['## いまの場所'];
-      L.push('- いま：' + World.placeLabel(here.stageId, here.stage) +
-             '（' + here.stageId + '）／' +
-             World.placeLabel(here.fieldId, here.field) + '／' +
-             World.placeLabel(here.areaId, here.area));
-      L.push('- 時間帯：' + (st.tod || 'aft') + '（mor=朝 aft=昼 eve=夕 ngt=夜）');
+      var L = ['## Current Location'];
+      L.push('- Now: ' + World.placeLabel(here.stageId, here.stage) + ' (' + here.stageId + ') / ' + World.placeLabel(here.fieldId, here.field) + ' / ' + World.placeLabel(here.areaId, here.area));
+      L.push('- Time Of Day: ' + (st.tod || 'aft') + ' (mor=Morning, aft=Afternoon, eve=Evening, ngt=Night)');;
       var sailed = window.Game && Game.s && Game.s.sailed;
       if (!sailed) {
-        L.push('- 船ができるまでクーケン島（area_01）以外は行けない。');
+        L.push('- Cannot travel to locations outside Kurken Island (area_01) until the ship is completed.');
       }
-      L.push('- 行ける場所（stage 欄用）：');
+      L.push('- Available Locations (for the stage field):');
       World.areas().forEach(function (a) {
         if (World.locked(a.id)) return;
         a.fields.forEach(function (f) {
@@ -406,11 +374,9 @@
       return L.join('\n');
     },
 
-    /* --------------------------------------------------------- pin map */
-    /* Source flow: the world beyond クーケン島 (area_01) opens when the
-       ship quest finishes (`sailed` in game.js — entry_map_move.dart). */
     locked: function (areaId) {
       if (!window.Game || !Game.s) return false;
+      if (window.Game && Game.cheatMap && Game.cheatMap()) return false;
       return !Game.s.sailed && areaId !== 'area_01';
     },
 

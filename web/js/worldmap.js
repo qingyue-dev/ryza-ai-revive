@@ -1,36 +1,5 @@
-/* worldmap.js — 世界地图（按官方形态重做）。
+/* worldmap.js — 世界地图（按官方形态重做）。*/
 
-   官方形态（对照截图 `屏幕截图 2026-09-20 1404xx.png`）
-   ----------------------------------------------------
-   区域级（140431）：
-     · 地图**铺满整屏**（不是面板里的卡片）
-     · 地点标记 = 金色水滴 `area_pin` + 下方**深色胶囊地名**
-     · 未解锁 = 深色版标记；已解锁未到访 = 正常色
-     · 她的所在地 = `char_pin`（白色水滴框，里面放她的头像）+ `current_location`
-       （棕红绶带，写「目前位置」）
-     · 底部一条：区域选择器（点开是**区域卡片弹层**）+ 「目前位置」按钮
-     · 顶部小胶囊显示当前地点名
-   地点级（140447）：
-     · 选中的 field 用**橙色描边**圈出来，圈外压暗
-     · 内部是更细的 stage 标记 + 地名胶囊
-     · 底部左侧变成「‹ 小妖精の森」返回上一级
-   区域弹层（140440）：
-     · 底部弹层，标题「選擇區域」
-     · 两列区域卡片：区域实景图 + 未解锁的锁图标 + 底部一排 NPC 头像
-     · 当前区域左上角挂「目前位置」红标
-
-   素材（全部来自官方包）
-   ----------------------
-   `assets/world_map/ui/{area_pin,field_pin,field_pin_inactive,field_pin_ring,
-   current_location,char_pin,dots}.svg`、`assets/world_map/areas/area_0N.jpg`、
-   `assets/world_map/area_thumbs/`、`assets/images/chara_icons/*.png`
-
-   坐标
-   ----
-   `FIELDS` / `STAGES` 是从参考项目（AgentAtelierR 标定、Atelier R'Coagula 移植补齐）
-   取来的**数据**：field 38/38、stage 105/120。没有标定的 stage 不臆造坐标，
-   落在各自 field 的钉子上。
-*/
 (function (global) {
   'use strict';
 
@@ -72,8 +41,8 @@
   var ZOOM_MIN = 1, ZOOM_MAX = 3.2, ZOOM_STEP = 0.35;
 
   var WorldMap = {
-    mode: 'grid',            /* grid | map —— grid 是原来的钉子网格，保留 */
-    level: 'area',           /* area | field */
+    mode: 'grid',
+    level: 'area',
     areaId: '',
     fieldId: '',
     zoom: 1,
@@ -100,21 +69,8 @@
       var m = /^stage_(\d\d)_/.exec(String(stageId || ''));
       return m ? ('area_' + m[1]) : '';
     },
-    /* ---------------------------------------------------------- 兜底布局
-       现实：标定表只覆盖 37/38 个 field、**10/120 个 stage**（参考项目那张表里
-       绝大多数是 [0,0] 占位，已删）。照「没标定就不画」的做法，除 area_01 的
-       一两个 field 外，玩家**根本选不了地点** —— 这是功能缺失，不是保真。
-
-       兜底规则（确定性，不随机，同一次数据每次都摆在同一处）：
-         · 没标定的 field：在该区域内按序号均匀排一圈（半径 0.16），
-           避开区域中心，保证互相不重叠
-         · 没标定的 stage：在该 field 的钉子周围排一圈（半径 0.07）
-       这些位置是**布局推导，不是官方坐标**——所以：
-         ① 有标定时永远优先用标定值
-         ② 代码里写明来源（就是这段注释）
-         ③ 视觉上不做区分（否则玩家会以为官方地图有两种钉子），
-            但坐标来源可查：`pin.dataset.calibrated`
-       `WorldMap.coordSource(id)` 供调试与回归核对。 */
+    
+    /* 兜底布局 */
     _fallbackFieldPos: function (areaId, fieldId) {
       var fields = this.fieldsOf(areaId);
       var i = 0, n = fields.length;
@@ -128,10 +84,10 @@
       for (var k = 0; k < n; k++) if (list[k].id === stageId) { i = k; break; }
       var fp = FIELDS[fieldId] || this._fallbackFieldPos(this.areaId, fieldId);
       var ang = (i / Math.max(1, n)) * Math.PI * 2 - Math.PI / 2;
-      var r = 0.045 + 0.001 * (i % 4);      /* 同圈微错开，减少重叠 */
+      var r = 0.045 + 0.001 * (i % 4);
       return [fp[0] + Math.cos(ang) * r, fp[1] + Math.sin(ang) * r, fp[2] || 2.15];
     },
-    /* 坐标来源：calibrated（参考项目标定）/ layout（本地推导） */
+
     coordSource: function (id) {
       if (FIELDS[id]) return 'calibrated';
       if (STAGES[id]) return 'calibrated';
@@ -143,7 +99,6 @@
       return m ? ('field_' + m[1]) : '';
     },
 
-    /* 世界数据（World 是 core 层，这里只读） */
     world: function () { return global.World || null; },
     areas: function () {
       var w = this.world();
@@ -173,7 +128,7 @@
       }
       return false;
     },
-    /* 该区域的 NPC（用于区域卡片底部那排头像） */
+
     npcsOfArea: function (areaId, day) {
       var w = this.world();
       var out = [];
@@ -190,13 +145,12 @@
       return ICONS + 'ryza.png';
     },
 
-    /* ---------------------------------------------------------------- 相机 */
+    /* 相机 */
     _apply: function () {
       var layer = this._root && this._root.querySelector('.wmp-layer');
       var map = this._root && this._root.querySelector('.wmp-map');
       if (!layer || !map) return;
       layer.style.transform = 'translate(' + this.panX + '%, ' + this.panY + '%) scale(' + this.zoom + ')';
-      /* 圈外压暗（地点级） */
       map.classList.toggle('focused', this.level === 'field');
     },
     _clampPan: function () {
@@ -222,7 +176,7 @@
       this.zoom = 1; this.panX = 0; this.panY = 0;
       this._apply();
     },
-    /* 「目前位置」：把镜头对到她所在地 */
+
     recenter: function (stageId) {
       var f = this.fieldOfStage(stageId);
       var p = FIELDS[f];
@@ -230,7 +184,7 @@
       this.reset();
     },
 
-    /* ---------------------------------------------------------------- 渲染 */
+    /* 渲染 */
     render: function (root, state, handlers) {
       if (!root) return;
       this._root = root;
@@ -249,7 +203,6 @@
       var self = this;
       var day = st.day || 1;
 
-      /* ---- 地图主体（铺满） ---- */
       var map = document.createElement('div');
       map.className = 'wmp-map';
       var layer = document.createElement('div');
@@ -260,7 +213,6 @@
       img.src = AREAS + (areaId || 'area_01') + '.jpg';
       layer.appendChild(img);
 
-      /* ---- 顶部：当前地点名小胶囊（官方形态） ---- */
       var top = document.createElement('div');
       top.className = 'wmp-top';
       var here = st.stage || stageId;
@@ -271,7 +223,6 @@
       /* ---- 标记 ---- */
       if (this.level === 'area') {
         this.fieldsOf(areaId).forEach(function (f) {
-          /* 标定优先；没标定用确定性环形布局兜底（见 _fallbackFieldPos 的说明） */
           var calibrated = !!FIELDS[f.id];
           var p = FIELDS[f.id] || self._fallbackFieldPos(areaId, f.id);
           var on = !!f.stages && f.stages.some(function (s2) { return s2.id === stageId; });
@@ -301,12 +252,9 @@
           layer.appendChild(pin);
         });
       } else {
-        /* 地点级：更细的 stage 标记；没标定的 stage 不画（不臆造） */
         var stages = this.stagesOf(this.fieldId);
         var fp = FIELDS[this.fieldId];
         stages.forEach(function (s2) {
-          /* 标定优先；没标定用该 field 周围的环形布局兜底
-             （120 个 stage 里只有 10 个有标定，不兜底就选不了地点） */
           var calibrated = !!STAGES[s2.id];
           var x, y;
           if (calibrated && fp) {
@@ -334,7 +282,6 @@
         });
       }
 
-      /* ---- 她的位置：char_pin 水滴 + 头像 + current_location 绶带 ---- */
       var myField = this.fieldOfStage(stageId);
       var mp = FIELDS[myField];
       if (mp && (!this.fieldId || this.fieldId === myField)) {
@@ -342,8 +289,6 @@
         me.className = 'wmp-me';
         me.style.left = (mp[0] * 100) + '%';
         me.style.top = (mp[1] * 100) + '%';
-        /* 官方把「目前位置」写在绶带里，而 current_location.svg 本身是**空气泡**
-           （只有形状没有字，190×72）——只贴图会得到一个空黑泡。 */
         me.innerHTML =
           '<span class="wmp-me-tag"><img class="wmp-me-badge" alt="">' +
           '<b class="wmp-me-text"></b></span>' +
@@ -359,7 +304,6 @@
       map.appendChild(layer);
       root.appendChild(map);
 
-      /* ---- 底部条：区域选择器 + 目前位置（官方形态） ---- */
       var bar = document.createElement('div');
       bar.className = 'wmp-bar';
       var sel = document.createElement('button');
@@ -377,10 +321,7 @@
         sel.onclick = function () { self.areaSheet(root, st); };
       }
       bar.appendChild(sel);
-
-      /* 列表/地图切换必须放在地图内部：地图模式会把整个头部隐藏
-         （官方形态是铺满），而切换键原来就在头部 —— 于是切进来就出不去。
-         这里补一个等价的出口，位置在底部条最右。 */
+      
       var btnList = document.createElement('button');
       btnList.className = 'wmp-list';
       btnList.textContent = (global.I18n && I18n.t) ? I18n.t('world.list') : '列表';
@@ -434,12 +375,7 @@
       this.render(this._root, { stage: st.stage, day: st.day });
     },
 
-    /* ------------------------------------------------------- 区域选择弹层
-       官方形态（140440）：底部弹层 + 两列区域卡片
-         · 卡片用区域实景图（areas/area_0N.jpg）
-         · 未解锁压暗 + 中央锁图标
-         · 卡片底部一排该区域 NPC 头像
-         · 当前区域左上角「目前位置」红标                        */
+    /* 区域选择弹层 */
     areaSheet: function (root, st) {
       var self = this;
       var day = (st && st.day) || 1;
@@ -450,7 +386,7 @@
       sheet.className = 'wmp-sheet';
       var head = document.createElement('div');
       head.className = 'wmp-sheet-head';
-      head.textContent = '選擇區域';
+      head.textContent = (global.I18n && I18n.t) ? I18n.t('world.areas') : 'Select Area';
       sheet.appendChild(head);
 
       var grid = document.createElement('div');
@@ -463,14 +399,13 @@
         var art = document.createElement('img');
         art.className = 'wmp-acard-art';
         art.alt = '';
-        /* 缩略图只到 03；04/05 用整图（不发明素材） */
         var thumbOk = ['area_01', 'area_02', 'area_03'].indexOf(a.id) !== -1;
         art.src = thumbOk ? (THUMBS + a.id + '.jpg') : (AREAS + a.id + '.jpg');
         card.appendChild(art);
         if (isHere) {
           var badge = document.createElement('span');
           badge.className = 'wmp-acard-badge';
-          badge.textContent = '目前位置';
+          badge.textContent = (global.I18n && I18n.t) ? I18n.t('world.current') : 'Current location';
           card.appendChild(badge);
         }
         if (locked) {
@@ -480,7 +415,6 @@
           lock.alt = '';
           card.appendChild(lock);
         }
-        /* 该区域的 NPC 头像排（官方卡片底部就有这一排） */
         var folks = self.npcsOfArea(a.id, day).slice(0, 6);
         if (folks.length) {
           var strip = document.createElement('span');
@@ -511,16 +445,13 @@
       });
       sheet.appendChild(grid);
 
-      /* 点空白处收起 */
       sheet.addEventListener('click', function (ev) {
         if (ev.target === sheet) sheet.remove();
       });
       root.appendChild(sheet);
     },
 
-    /* ------------------------------------------------------------------ 拖动
-       pointerdown 里**不能**立刻 setPointerCapture：捕获会把后续 click 全导向
-       容器，钉子就永远点不动（原来的 bug）。改成移动超过阈值才算拖动，成立时才捕获。 */
+    /* 拖动 */
     _bindDrag: function (view) {
       var self = this;
       var dragging = false, sx = 0, sy = 0, ox = 0, oy = 0, moved = false;

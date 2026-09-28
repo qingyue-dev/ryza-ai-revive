@@ -1,6 +1,5 @@
-/* Title fire / voice-toggle / quest confetti. Timing is taken from the
-   shipped Lottie JSON (fr / op); drawing is canvas so we don't vendor a
-   Lottie runtime. */
+/* Title fire / voice-toggle / quest confetti. Timing is taken from thebshipped Lottie JSON (fr / op); drawing is canvas so we don't vendor a Lottie runtime. */
+   
 (function (global) {
   'use strict';
 
@@ -133,8 +132,7 @@
         y = h * 0.72 - (i * 4 + (t * 28 + i * 11) % 40);
         s = 10 - i * 0.4 + flicker * 3;
         ctx.beginPath();
-        ctx.fillStyle = i % 2 ? 'rgba(232,180,92,' + (0.35 + flicker * 0.4) + ')'
-                              : 'rgba(255,138,76,' + (0.3 + flicker * 0.45) + ')';
+        ctx.fillStyle = i % 2 ? 'rgba(232,180,92,' + (0.35 + flicker * 0.4) + ')' : 'rgba(255,138,76,' + (0.3 + flicker * 0.45) + ')';
         ctx.ellipse(x, y, s * 0.55, s, 0, 0, Math.PI * 2);
         ctx.fill();
       }
@@ -148,10 +146,6 @@
         Fx._confetti = [];
         return;
       }
-      /* The fallback sizes were always here, but `host` itself was not guarded:
-         a detached canvas (no parentElement) threw on the very first animation
-         frame, and because Fx.init() runs inside the boot chain that one throw
-         skipped the rest of boot. Decoration must not be able to do that. */
       var w = (host && host.clientWidth) || 360, h = (host && host.clientHeight) || 640;
       if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
       var ctx = c.getContext('2d');

@@ -1,32 +1,18 @@
-/* Alarms: APK layout assets/audio/alarm/<locale>/<normal|whisper>/<type>/<tod>/<n>.m4a
-   + sibling .env.json (durationMs, windowMs, envelope[]) for lipsync.
-   The clip catalog (VoiceBank) itself lives in audio.js with the rest of
-   the sound routing. */
+/* Alarms: APK layout assets/audio/alarm/<locale>/<normal|whisper>/<type>/<tod>/<n>.m4a + sibling .env.json (durationMs, windowMs, envelope[]) for lipsync.*/
+
 (function (global) {
   'use strict';
 
   var KEY = 'ryza.alarms.v1';
   var TYPES = ['goodMorning', 'playWithMe', 'task', 'wellDone'];
   var STYLES = ['normal', 'whisper'];
-  var WEEK = ['日', '一', '二', '三', '四', '五', '六'];
+  var WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  /* Voice-table band name for an hour. The boundaries are NOT redeclared here:
-     Util.hourToTod owns them (shared with the scene bands), and Util.TOD_VOICE
-     maps the scene vocabulary to the long names this audio tree uses. */
   function todForHour(h) {
     return Util.todForVoice(h);
   }
 
-  /* Host-injected editor opener: the alarm list's own view code must not reach
-     into App (see scripts/layering_check.js). Inert by default. */
   var _edit = null;
-
-  /* The native bridge (the Android shell's RyzaAlarm JavascriptInterface). When
-     it exists IT is the firing authority: it survives the process being killed
-     and can wake the screen, which a setInterval inside a WebView cannot do at
-     all. The web model stays the single source of truth for the list — every
-     mutation is pushed down as JSON, so the two cannot drift.
-     Absent (browser, Electron) = the old in-page scheduler, unchanged. */
   var _native = null;
   var _onFire = null;
 
@@ -35,9 +21,6 @@
     catch (e) { return false; }
   }
 
-  /* What the native side plays. It has no voice-bank index, so the clip is
-     resolved here — for the alarm's OWN hour, which is the band it will ring in
-     (the clip tree is banded morning/daytime/evening/night). */
   function clipFor(a) {
     var h = parseInt(String(a.time || '7:00').slice(0, 2), 10);
     if (isNaN(h)) h = 7;
@@ -75,9 +58,6 @@
     load: function () {
       try { Alarm.items = JSON.parse(localStorage.getItem(KEY) || '[]'); }
       catch (e) { Alarm.items = []; }
-      /* First run on a host that already has native alarms (the app was
-         reinstalled, or the page's storage was cleared): adopt them rather than
-         showing an empty list while the system keeps ringing. */
       if (!Alarm.items.length && nativeReady() && typeof _native.list === 'function') {
         try {
           var remote = JSON.parse(_native.list() || '[]');
@@ -85,14 +65,12 @@
             Alarm.items = remote;
             Alarm.save();
           }
-        } catch (e) { /* keep the empty list */ }
+        } catch (e) { }
       }
       return Alarm.items;
     },
     save: function () {
       try { localStorage.setItem(KEY, JSON.stringify(Alarm.items)); } catch (e) {}
-      /* Every mutation funnels through here, so this is the one place the native
-         schedule needs to be refreshed. */
       push();
     },
 
@@ -127,15 +105,11 @@
     start: function (onFire) {
       _onFire = (typeof onFire === 'function') ? onFire : null;
       if (Alarm._timer) { clearInterval(Alarm._timer); Alarm._timer = null; }
-      /* Native host: the system owns the schedule now. Running the in-page tick
-         as well would double-fire every alarm. */
       if (nativeReady()) { push(); return; }
       Alarm._timer = setInterval(function () { Alarm._tick(_onFire); }, 5000);
       Alarm._tick(_onFire);
     },
 
-    /* Called when the native side says an alarm fired while the page is alive.
-       The list is not touched: native re-arms the next occurrence itself. */
     _nativeFire: function (one) {
       var a = (one && one.id) ? Alarm.get(one.id) : null;
       if (!a) return false;
@@ -146,8 +120,7 @@
 
     _tick: function (onFire) {
       var now = new Date();
-      var hhmm = String(now.getHours()).padStart(2, '0') + ':' +
-                 String(now.getMinutes()).padStart(2, '0');
+      var hhmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
       var dow = now.getDay();
       var stamp = now.toDateString() + ' ' + hhmm;
       Alarm.items.forEach(function (a) {
@@ -169,8 +142,7 @@
       var min = Math.max(1, parseInt(a.snoozeMin, 10) || 5);
       var d = new Date();
       d.setMinutes(d.getMinutes() + min);
-      a._snoozeUntil = String(d.getHours()).padStart(2, '0') + ':' +
-                       String(d.getMinutes()).padStart(2, '0');
+      a._snoozeUntil = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
       Alarm.save();
     },
 

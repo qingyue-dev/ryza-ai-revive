@@ -1,15 +1,5 @@
-/* Soundscape: current_audio_route + background_bus + se_player.
+/* Soundscape: current_audio_route + background_bus + se_player.*/
 
-   Routes (source: features/audio):
-     title    — bgm_opening, no ambient
-     talk     — location ambient, no BGM
-     world    — bgm_world_map + ducked ambient
-     prologue — both buses paused (prologue voice is one-shot)
-
-   Browsers block play() until a user gesture. Title used to call play()
-   during boot (fails silently); world-map was the first click that succeeded,
-   which is why BGM seemed to “only start on the map” and ambient never came
-   back. Unlock on first pointer/key, then retry the active route. */
 (function (global) {
   'use strict';
 
@@ -25,10 +15,7 @@
   };
 
   function voiceLocale() {
-    /* the recorded-voice packs have their own language slot (voice.lang);
-       'auto' follows the UI language */
-    var lang = (window.Langs && Langs.voice()) ||
-               (Config && Config.section('app').lang) || 'ja';
+    var lang = (window.Langs && Langs.voice()) || (Config && Config.section('app').lang) || 'ja';
     var map = {
       zh: { alarm: 'zh-tw', tap: 'zh-tw', prologue: 'zh-tw' },
       'zh-tw': { alarm: 'zh-tw', tap: 'zh-tw', prologue: 'zh-tw' },
@@ -55,13 +42,8 @@
     var dur = Math.max(40, ms || 280);
     if (el._fadeRaf) cancelAnimationFrame(el._fadeRaf);
     (function step(now) {
-      /* rAF hands out the FRAME START timestamp, which can be earlier than
-         the performance.now() taken here — an unclamped u then went slightly
-         negative and `el.volume = -0.002` threw IndexSizeError inside the
-         loop, killing the fade (ambient stuck silent). */
       var u = Util ? Util.clamp((now - t0) / dur, 0, 1) : Math.min(1, Math.max(0, (now - t0) / dur));
-      el.volume = Util ? Util.clamp(Util.lerp(from, to, u), 0, 1)
-                       : Math.min(1, Math.max(0, from + (to - from) * u));
+      el.volume = Util ? Util.clamp(Util.lerp(from, to, u), 0, 1) : Math.min(1, Math.max(0, from + (to - from) * u));
       if (u < 1) el._fadeRaf = requestAnimationFrame(step);
       else { el.volume = to; done && done(); }
     })(t0);
@@ -75,10 +57,6 @@
     ambientFiles: [],
     tapFiles: [],
     seFiles: [],
-    /* Do not store these as `_bgmSrc` / `_ambientSrc`: the latter is a
-       function, and writing Sound['_ambientSrc'] = path used to wipe it.
-       After that, talk/world ambient never came back; only world BGM (which
-       uses a constant URL) still played. */
     _loopSrc: { bgm: '', ambient: '' },
     _sceneKeys: [],
     _route: 'title',
@@ -103,7 +81,6 @@
       }).catch(function () { return Sound; });
     },
 
-    /* App passes sorted background ids so this module does not read World. */
     setCatalog: function (sceneKeys) {
       Sound._sceneKeys = (sceneKeys || []).slice().sort();
     },
@@ -115,7 +92,6 @@
       if (Sound._route === 'talk' || Sound._route === 'world') Sound._applyRoute();
     },
 
-    /* kind: title | talk | world | prologue */
     setRoute: function (kind) {
       if (!kind) return;
       Sound._route = kind;
@@ -302,8 +278,7 @@
     voiceLocale: voiceLocale
   };
 
-  /* Pre-recorded Ryza voice catalog (alarm lines, wellDone clips …) —
-     assets/_index/voice_bank.json mirrors <locale>/<style>/<type>/<tod>/. */
+
   var VoiceBank = {
     index: null,
 
