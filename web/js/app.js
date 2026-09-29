@@ -119,6 +119,7 @@
         I18n.setLang(saved);
       })();
       App.applyI18n(document);
+      
       /* 启动作弊引擎：读档、校验、开看门狗。请勿删除 —— 青月 */
       if (window.Ψ_x9) window.Ψ_x9.ι0();
       var inpEl = document.getElementById('input');
@@ -213,14 +214,12 @@
       if (Nsfw.setSink) {
         Nsfw.setSink(function (name) {
           Avatar.setAtlasVariant(name, function () {
-            /* noVariant toast removed — silently ignore missing alternate texture */
           });
         });
       }
       if (Api.setScreenState) {
         Api.setScreenState(function () {
-          return (Avatar.screenState && Avatar.screenState()) ||
-                 { emotion: '', attitude: '' };
+          return (Avatar.screenState && Avatar.screenState()) || { emotion: '', attitude: '' };
         });
       }
       if (World.setNotice) World.setNotice(App.toast);
@@ -452,6 +451,7 @@
           if (act === 'lang') { open(false); App._openLangSheet(); return; }
           if (act === 'toggleChara') { App._toggleChara(); return; }
           if (act === 'fullscreen') { open(false); App._toggleFullscreen(); return; }
+          if (act === 'changelog') { open(false); App._openChangelog(); return; }
           document.querySelectorAll('.drawer-list li').forEach(function (x) {
             x.classList.remove('active');
           });
@@ -542,6 +542,7 @@
       document.getElementById('sm-full').onclick = sideClose(function () { App._toggleFullscreen(); });
       document.getElementById('sm-chara').onclick = sideClose(function () { App._toggleChara(); });
       document.getElementById('sm-settings').onclick = sideClose(function () { App.showView('settings'); });
+      document.getElementById('sm-changelog').onclick = sideClose(function () { App._openChangelog(); });
       document.getElementById('sm-map').onclick = sideClose(function () { App.showView('world'); });
       var postureBtn = document.getElementById('btn-posture');
       if (postureBtn) postureBtn.onclick = function () {
@@ -624,7 +625,6 @@
       if (zi) zi.onclick = function () { Avatar.zoomBy(Avatar.PLAYER_ZOOM_STEP); };
       if (zo) zo.onclick = function () { Avatar.zoomBy(-Avatar.PLAYER_ZOOM_STEP); };
       if (zr) zr.onclick = function () { Avatar.zoomReset(); };
-      /* 收起/展开右侧整列钮 */
       var qt = document.getElementById('btn-quick-toggle');
       if (qt) {
         qt.onclick = function () {
@@ -636,14 +636,13 @@
       var stageEl = document.getElementById('stage');
       if (stageEl) {
         stageEl.addEventListener('wheel', function (ev) {
-          if (!App._viewIsTalk()) return; /* 只在对话页响应滚轮 */
+          if (!App._viewIsTalk()) return;
           ev.preventDefault();
           Avatar.zoomBy(ev.deltaY < 0 ? Avatar.PLAYER_ZOOM_STEP : -Avatar.PLAYER_ZOOM_STEP);
         }, { passive: false });
       }
       var wmBtn = document.getElementById('btn-world-mode');
       if (wmBtn) wmBtn.onclick = function () { App.toggleWorldMode(); };
-      /* 服装导入：ZIP 走 CrfStore（IndexedDB），失败只报错不崩 */
       var crfBtn = document.getElementById('btn-crf-zip');
       var crfFile = document.getElementById('crf-file-zip');
       if (crfBtn && crfFile) {
@@ -1459,6 +1458,10 @@
       }
       if (App._syncVoicePill) App._syncVoicePill();
       App._syncSpeedBtn();
+    },
+
+    _openChangelog: function () {
+      if (window.Changelog) Changelog.open();
     },
 
     _openLangSheet: function () {

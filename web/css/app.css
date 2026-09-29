@@ -778,3 +778,21 @@ input[type=range]{width:100%;accent-color:var(--gold)}
   display:block;font-size:9px;text-align:right;
   padding:4px 12px 6px;color:rgba(255,255,255,.18);
   font-style:italic;letter-spacing:.5px}
+/* ── Changelog sheet (bottom sheet, same shell as inventory/status) ── */
+.cl-repo{font-size:11px;color:var(--dim);margin:0 0 6px}
+.cl-err-msg{color:#e06666;font-size:12px;margin:0;min-height:0}
+.cl-err-msg:empty{display:none}
+.cl-body{overflow-y:auto;max-height:52vh;-webkit-overflow-scrolling:touch}
+.cl-loading,.cl-empty{color:var(--dim);font-size:13px;text-align:center;padding:24px 0}
+.cl-chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+.cl-chip{font-size:11px;padding:3px 8px;border-radius:99px;background:var(--panel);border:1px solid var(--line);color:var(--fg)}
+.cl-row{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.cl-row:last-child{border-bottom:none}
+.cl-tap{cursor:pointer}
+.cl-icon{flex:0 0 22px;text-align:center;font-size:16px;padding-top:1px}
+.cl-body-col{flex:1;min-width:0}
+.cl-label{display:block;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin-bottom:2px}
+.cl-msg{display:block;font-size:13px;color:var(--fg);word-break:break-word}
+.cl-more{display:block;font-size:12px;color:var(--dim);white-space:pre-wrap;word-break:break-word;margin-top:4px}
+.cl-more.hidden{display:none}
+.cl-meta{display:block;font-size:10px;color:var(--dim);margin-top:3px}
