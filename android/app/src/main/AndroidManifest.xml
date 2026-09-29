@@ -29,7 +29,7 @@
          WebView's audio-capture request when it is actually held. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <application
-        android:label="ライザと話す"
+        android:label="RyzaChat: AI"
         android:icon="@drawable/ic_launcher"
         android:usesCleartextTraffic="true"
         android:hardwareAccelerated="true"
