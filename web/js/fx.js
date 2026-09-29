@@ -114,9 +114,7 @@
 
     _drawFire: function (dt) {
       var c = document.getElementById('lottie-fire');
-      if (!c || (c.offsetParent === null && c.style.display === 'none')) {
-        /* still draw if overlay is visible */
-      }
+      if (!c || (c.offsetParent === null && c.style.display === 'none')) { }
       if (!c) return;
       var ov = document.getElementById('overlay-title');
       if (ov && ov.classList.contains('hidden')) return;

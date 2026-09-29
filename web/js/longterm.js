@@ -1,69 +1,47 @@
-/* longterm.js — 长期记忆：带日期的条目 + 压缩摘要。
+/* longterm.js — 长期记忆：带日期的条目 + 压缩摘要。*/
 
-   为什么要有它（与 memory.js 的分工）
-   ----------------------------------
-   memory.js 是「近窗卡片的压缩层」：一段对话压成一张卡，卡满了同层再压。
-   它回答的是「最近聊过什么」，但回答不了「三个月前她答应过我什么」。
-
-   这一层补上那件事，做法参考 Atelier R'Coagula 的 longmem 设计（两种做法合并）：
-     entries[]  精确、带日期、带分类、带关键词、带重要度的事实
-                → 每轮按相关度挑 ≤ SELECT_LIMIT 条进提示词
-                → **受保护类别或重要度 5 的条目不静默丢弃**
-     digest     一段按时间顺序的散文，装「不值得单独占条目、丢了又可惜」的内容
-                → 永远注入（有上限），提示词成本恒定
-
-   两者互补：卡片层管最近，这一层管长线；同一件事不会被两边都记（条目优先）。
-
-   依赖注入（沿用本项目约定）
-   --------------------------
-   · setLLM(fn)   —— 归纳用的模型调用；不注入则退化为「只累积不归纳」，不抛错
-   · setClock(fn) —— 取当前时间字符串（回归用固定时钟）
-   没有 DOM、没有网络、没有 localStorage 之外的副作用（本模块只读写 localStorage）。
-*/
 (function (global) {
   'use strict';
 
   var KEY = 'ryza.longterm.v1';
-  var ENTRY_LIMIT = 40;          /* 条目上限，超出的折进 digest */
-  var DIGEST_MAX = 1600;         /* digest 存储上限 */
-  var DIGEST_PROMPT_MAX = 800;   /* digest 每轮注入上限 */
-  var SELECT_LIMIT = 12;         /* 每轮交给模型的条目数 */
-  var SUMMARY_MAX = 120;         /* 单条 summary 长度 */
+  var ENTRY_LIMIT = 40;
+  var DIGEST_MAX = 1600;
+  var DIGEST_PROMPT_MAX = 800;l
+  var SELECT_LIMIT = 12;
+  var SUMMARY_MAX = 120;
   var KEYWORD_MAX = 8;
-  var PENDING_MAX = 20;          /* 未归纳的轮数上限 */
-  var DIALOGUE_MAX = 12000;      /* 归纳输入上限，防小上下文模型被撑爆 */
+  var PENDING_MAX = 20;
+  var DIALOGUE_MAX = 12000;
 
   /* 受保护类别：这些条目即使超出上限也不删（只能由新内容取代） */
-  var PROTECTED = ['promise', 'confession', 'deep_hurt',
-                   'relationship_turning_point', 'major_life_event'];
+  var PROTECTED = ['promise', 'confession', 'deep_hurt', 'relationship_turning_point', 'major_life_event'];
 
   /* 「回忆提示」触发词：命中就提升相关度 */
   var RECENT_CUE = /昨天|前天|之前|上次|还记得|记得|remember|yesterday|昨日|前回|あの時/;
 
   var CONSOLIDATE_SYS = [
-    '你负责维护有限、可靠的长期记忆。只输出 JSON，不要 Markdown 或解释。',
-    '格式：{"digest":"按时间顺序的概略散文","entries":[{"date":"YYYY-MM-DD",',
-    '"category":"类别","importance":1,"summary":"简洁事实","status":"active",',
-    '"keywords":["关键词"]}]}。',
-    '合并旧记忆与近期对话并去重；同一事件更新原条目，不重复新增。',
-    '只保留稳定偏好、重要经历、关系变化、未完成约定与未来确有价值的信息；',
-    '普通寒暄、一次性客套、重复信息应删除。entries 最多 ' + ENTRY_LIMIT + ' 条。',
-    '不适合单独成条但丢掉可惜的内容并进 digest（按时间顺序，≤ ' + DIGEST_MAX + ' 字）。',
-    'importance 1-5。誓言/承诺用 promise，告白用 confession，深刻伤害用 deep_hurt，',
-    '关系转折用 relationship_turning_point，重大人生事件用 major_life_event；',
-    '这些类别必须设为 5，除非近期对话明确撤回或解决，否则不删。不要编造日期与细节。'
+    'You are responsible for maintaining a limited, reliable long-term memory. Output JSON only. Do not include Markdown or explanations.',
+    'Format: {"digest":"A chronological narrative summary","entries":[{"date":"YYYY-MM-DD",',
+    '"category":"Category","importance":1,"summary":"Concise fact","status":"active",',
+    '"keywords":["keywords"]}]}',
+    'Merge old memories with recent conversations and remove duplicates; update the original entry when the same event occurs instead of creating a duplicate.',
+    'Keep only stable preferences, important experiences, changes in relationships, unfinished commitments, and information that will genuinely be useful in the future;',
+    'Remove casual greetings, one-time pleasantries, and redundant information. Maximum ' + ENTRY_LIMIT + ' entries.',
+    'Information that is not suitable as a standalone entry but is still worth preserving should be included in digest (in chronological order, ≤ ' + DIGEST_MAX + ' characters).',
+    'importance ranges from 1-5. Use promise for vows/commitments, confession for confessions, deep_hurt for profound emotional harm,',
+    'relationship_turning_point for relationship turning points, and major_life_event for major life events;',
+    'These categories must be assigned importance 5 and must not be deleted unless explicitly withdrawn or resolved in a recent conversation. Do not fabricate dates or details.'
   ].join('\n');
 
-  var _llm = null;      /* fn(system, user, opts) -> Promise<string> */
-  var _clock = null;    /* fn() -> { iso, day } */
+  var _llm = null;
+  var _clock = null;
 
   function nowInfo() {
     if (_clock) return _clock();
     var d = new Date();
     var p = function (n) { return (n < 10 ? '0' : '') + n; };
     return {
-      iso: d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
-           'T' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()),
+      iso: d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()),
       day: d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
     };
   }
@@ -99,14 +77,13 @@
 
   function persist() {
     try {
-      /* 序列化上限：条目上限之外再兜一层，防单条超长 */
       var out = {
         v: 1, updatedAt: state.updatedAt, digest: clip(state.digest, DIGEST_MAX),
         entries: state.entries.slice(0, ENTRY_LIMIT).map(normEntry),
         pending: state.pending.slice(-PENDING_MAX)
       };
       localStorage.setItem(KEY, JSON.stringify(out));
-    } catch (e) { /* 配额满了也不能崩 */ }
+    } catch (e) { }
   }
 
   function validEntry(e) {
@@ -128,14 +105,10 @@
     return t && (t.role === 'user' || t.role === 'assistant') && typeof t.text === 'string';
   }
 
-  /* 受保护条目：类别在名单里，或重要度 5 */
   function isProtected(e) {
     return PROTECTED.indexOf(e.category) !== -1 || e.importance >= 5;
   }
-
-  /* 相关度：命中关键词/日期/最近提示词就加分。
-     这不是语义检索（本项目没有 embedding），是与提示词的字面匹配——
-     够用且可解释，比「全量注入」省 token。 */
+  
   function score(e, cue) {
     var s = e.importance;
     if (e.status !== 'active') s -= 3;
@@ -159,14 +132,12 @@
       .map(function (x) { return x.e; });
   }
 
-  /* 超上限时：受保护的留住，其余折进 digest 的说明里（不静默删除） */
   function enforceLimit() {
     if (state.entries.length <= ENTRY_LIMIT) return 0;
     var sorted = state.entries.slice().sort(function (a, b) {
       var pa = isProtected(a) ? 1 : 0, pb = isProtected(b) ? 1 : 0;
-      if (pa !== pb) return pb - pa;                 /* 受保护优先留 */
-      return (b.importance - a.importance) ||
-             String(b.date).localeCompare(String(a.date));
+      if (pa !== pb) return pb - pa;
+      return (b.importance - a.importance) || String(b.date).localeCompare(String(a.date));
     });
     var keep = sorted.slice(0, ENTRY_LIMIT);
     var fold = sorted.slice(ENTRY_LIMIT);
@@ -178,8 +149,6 @@
     return fold.length;
   }
 
-  /* 去重键：日期 + 归一化摘要（去标点/空白/大小写）前 14 字。
-     不做语义相似度（本项目没有 embedding），但对「同一件事换个说法」够用。 */
   function sameKey(e) {
     var t = String(e.summary || '')
       .replace(/[\s　]+/g, '')
@@ -206,7 +175,6 @@
     var incoming = (Array.isArray(obj.entries) ? obj.entries : [])
       .filter(validEntry).map(normEntry);
     incoming.forEach(function (ne) {
-      /* 去重：同一天 + 相似的 summary 视为同一件事，更新而不是新增 */
       var dup = null;
       var key = sameKey(ne);
       state.entries.forEach(function (e) {
@@ -231,10 +199,8 @@
   }
 
   var LongTerm = {
-    LIMITS: { ENTRY_LIMIT: ENTRY_LIMIT, DIGEST_MAX: DIGEST_MAX, SELECT_LIMIT: SELECT_LIMIT,
-              PENDING_MAX: PENDING_MAX, PROTECTED: PROTECTED },
+    LIMITS: { ENTRY_LIMIT: ENTRY_LIMIT, DIGEST_MAX: DIGEST_MAX, SELECT_LIMIT: SELECT_LIMIT, PENDING_MAX: PENDING_MAX, PROTECTED: PROTECTED },
 
-    /* 回归用：把内部状态摊开（只读快照） */
     _state: function () { return state; },
     _reset: function () { state = blank(); persist(); },
 
@@ -256,8 +222,6 @@
 
     pendingTurns: function () { return state.pending.length; },
 
-    /* 归纳：把 entries + digest + pending 交给模型，取回合并后的结果。
-       没有注入 LLM 时**不抛错**，只返回 null（退化为纯累积）。 */
     consolidate: function () {
       if (!_llm) return Promise.resolve(null);
       var body = JSON.stringify({
@@ -269,13 +233,11 @@
       return Promise.resolve(_llm(CONSOLIDATE_SYS, body, { maxTokens: 1200 }))
         .then(function (text) {
           var obj = parseConsolidation(text);
-          /* 先把待归纳的内容留一份：模型给不出可用 JSON 时要靠它兜底。
-             （早先在这里先清 pending，兜底就永远拿到空串 —— 回归抓到的 bug。） */
           var pending = state.pending.slice();
           state.pending = [];
           if (!obj) {
             var note = pending.map(function (p) { return p.role + ': ' + p.text; }).join(' | ');
-            if (!note) note = '（本轮归纳未返回可用 JSON）';
+            if (!note) note = ' (This round of consolidation did not return usable JSON) ';
             state.digest = clip((state.digest ? state.digest + ' ' : '') + note, DIGEST_MAX);
             persist();
             return null;
@@ -284,7 +246,7 @@
           return obj;
         })
         .catch(function () {
-          return null;      /* 归纳失败不影响对话 */
+          return null;
         });
     },
 
@@ -293,18 +255,16 @@
       return LongTerm.consolidate();
     },
 
-    /* 提示词块：digest 永远注入（截断），条目按相关度挑 ≤ SELECT_LIMIT。
-       cue 是本轮用户说的话，用于相关度。 */
     promptBlock: function (cue) {
       var L = [];
       var digest = clip(state.digest, DIGEST_PROMPT_MAX);
       if (digest) {
-        L.push('## 長期記憶（概略）');
+        L.push('## Long-Term Memory (Overview) ');
         L.push(digest);
       }
       var picked = selectEntries(cue || '', SELECT_LIMIT);
       if (picked.length) {
-        L.push('## 長期記憶（出来事）');
+        L.push('## Long-Term Memory (Events) ');
         picked.forEach(function (e) {
           L.push('- [' + e.date + '] ' + e.summary);
         });

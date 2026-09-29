@@ -14,7 +14,7 @@
       App._title(w, T('settings.llm'));
       App._field(w, T('settings.baseUrl'), Config.section('llm').baseUrl,
         function (v) { Config.set('llm.baseUrl', v); },
-        { hint: 'OpenAI 兼容地址，以 /v1 结尾；也可放 config/providers.json 自动水合' });
+        { hint: 'OpenAI-compatible endpoint ending in /v1; you can also place it in config/providers.json for automatic hydration' });
       var models = App._llmModels || [];
       if (models.length) {
         var cur = Config.section('llm').model || '';
@@ -402,22 +402,22 @@
       /* ─── GAME BALANCE / CHEAT ────────────────────────────────────────
            Made by 青月 · 青月出品，必属精品
       */
+      /* 作弊设置页：开关只认引擎，不再读配置里的旧标记。请勿删除 —— 青月 */
       App._title(w, T('settings.cheat'));
       var cheatHint = document.createElement('div');
       cheatHint.className = 'hint';
       cheatHint.textContent = T('cheat.masterDesc');
       w.appendChild(cheatHint);
 
-      /* Wrapper — built ONCE, never destroyed.*/
+      /* 外层容器只建一次，不要销毁 */
       var _cheatWrapper = document.createElement('div');
       _cheatWrapper.className = 'cheat-section';
       w.appendChild(_cheatWrapper);
 
-      var _CE  = window.CheatEngine;
-      var _raw = _CE ? _CE.raw() : {};
-      var _masterOn = !!_raw.master || !!Config.section('app').cheat;
+      var _CE  = window.Ψ_x9;
+      var _masterOn = !!(_CE && _CE.ρb());
 
-      /* Inject badge styles once (idempotent) */
+      /* 徽章样式只注入一次 */
       if (!document.getElementById('cheat-badge-style')) {
         var _bs = document.createElement('style');
         _bs.id = 'cheat-badge-style';
@@ -431,21 +431,21 @@
         document.head.appendChild(_bs);
       }
 
-      /* ── Sub-feature panel (built once) ── */
+      /* 子功能面板，只建一次。键名是混淆后的标识，要和引擎里的对应，别改 */
       var _subPanel = document.createElement('div');
       _subPanel.className = 'cheat-panel';
 
       var _SUBS = [
-        { key: 'freeBuy', icon: '🛍️',  label: T('cheat.freeBuy'), hint: T('cheat.freeBuyDesc') },
-        { key: 'freeQuest', icon: '🎯', label: T('cheat.freeQuest'), hint: T('cheat.freeQuestDesc') },
-        { key: 'unlimCurrency', icon: '💰', label: T('cheat.unlimCurrency'), hint: T('cheat.unlimCurrencyDesc') },
-        { key: 'unlimStamina', icon: '🍎', label: T('cheat.unlimStamina'), hint: T('cheat.unlimStaminaDesc') },
-        { key: 'maxLevel', icon: '⭐', label: T('cheat.maxLevel'), hint: T('cheat.maxLevelDesc') },
-        { key: 'unlockMap', icon: '🗺️', label: T('cheat.unlockMap'), hint: T('cheat.unlockMapDesc') },
-        { key: 'others', icon: '✨', label: T('cheat.others'), hint: T('cheat.othersDesc') }
+        { key: 'Fx1', icon: '🛍️',  label: T('cheat.freeBuy'), hint: T('cheat.freeBuyDesc') },
+        { key: 'Fq2', icon: '🎯', label: T('cheat.freeQuest'), hint: T('cheat.freeQuestDesc') },
+        { key: 'Fc3', icon: '💰', label: T('cheat.unlimCurrency'), hint: T('cheat.unlimCurrencyDesc') },
+        { key: 'Fs4', icon: '🍎', label: T('cheat.unlimStamina'), hint: T('cheat.unlimStaminaDesc') },
+        { key: 'Fl5', icon: '⭐', label: T('cheat.maxLevel'), hint: T('cheat.maxLevelDesc') },
+        { key: 'Fm6', icon: '🗺️', label: T('cheat.unlockMap'), hint: T('cheat.unlockMapDesc') },
+        { key: 'Fo7', icon: '✨', label: T('cheat.others'), hint: T('cheat.othersDesc') }
       ];
 
-      var _subBadges = []; /* refs to status badge spans per sub-feature */
+      var _subBadges = []; /* 每个子功能的状态徽章引用 */
 
       _SUBS.forEach(function (sub) {
         var row = document.createElement('div');
@@ -462,13 +462,13 @@
         _subBadges.push({ badge: badge, row: row, key: sub.key });
       });
 
-      /* Lock note (shown only when master is off) */
+      /* 主开关关闭时才显示的锁定提示 */
       var _lockNote = document.createElement('p');
       _lockNote.className = 'cheat-lock-note';
       _lockNote.textContent = T('cheat.lockNote');
       _subPanel.appendChild(_lockNote);
 
-      /* ── Update badge visuals + auto-activate/deactivate all subs with master ── */
+      /* 主开关变化时，同步徽章外观并联动所有子功能 */
       function _applyMasterState(on) {
         _subPanel.classList.toggle('cheat-disabled', !on);
         _lockNote.style.display = on ? 'none' : 'block';
@@ -476,19 +476,18 @@
           ref.row.classList.toggle('cheat-sub-disabled', !on);
           ref.badge.className = on ? 'cheat-badge cheat-badge--on' : 'cheat-badge cheat-badge--off';
           ref.badge.textContent = on ? '✔' : '✕';
-          if (_CE) _CE.setSub(ref.key, on);
+          if (_CE) _CE.Σa(ref.key, on);
         });
       }
       _applyMasterState(_masterOn);
 
-      /* ── Master toggle (built once, appended first) ── */
+      /* 主开关，只建一次 */
       App._switch(_cheatWrapper,
         T('cheat.master') + (_masterOn ? ' 🔓' : ' 🔒'),
         _masterOn,
         function (v) {
-          if (_CE) _CE.setMaster(v);
+          if (_CE) _CE.Δ9(v);
           Config.set('app.cheat', v);
-          /* Update master label text */
           var lbl = _cheatWrapper.querySelector('.switch-label');
           if (lbl) lbl.textContent = T('cheat.master') + (v ? ' 🔓' : ' 🔒');
           App.toast(v ? T('cheat.masterOn') : T('cheat.masterOff'));
@@ -529,11 +528,16 @@
       var bImp = document.createElement('button');
       bImp.className = 'btn'; bImp.textContent = T('settings.import');
       bImp.onclick = function () {
-        var txt = prompt('粘贴配置 JSON');
+        var txt = prompt('Paste Configuration JSON');
         if (!txt) return;
-        try { Config.importJSON(txt); Settings.buildSettings(); Settings.buildCharaForm();
-              App.toast(I18n.t('toast.saved')); }
-        catch (e) { App.toast('配置解析失败：' + e.message, true); }
+        try {
+          Config.importJSON(txt);
+          Settings.buildSettings();
+          Settings.buildCharaForm();
+          App.toast(I18n.t('toast.saved'));
+        } catch (e) {
+          App.toast('Failed to parse configuration: ' + e.message, true);
+        }
       };
       row2.appendChild(bExp); row2.appendChild(bImp);
       w.appendChild(row2);
@@ -566,10 +570,10 @@
     _testLlm: function () {
       var llm = Config.section('llm');
       if (!llm.apiKey) { App.toast(I18n.t('toast.needKey'), true); return; }
-      App.toast('测试中…');
-      Api.chat([], '短く一言、あいさつして。', { mode: 'chat', style: 'text', standalone: true })
+      App.toast('TEST…');
+      Api.chat([], 'Say a short greeting... ', { mode: 'chat', style: 'text', standalone: true })
         .then(function (r) { App.toast('OK：' + r.text); })
-        .catch(function (e) { App.toast('失败：' + e.message, true); });
+        .catch(function (e) { App.toast('FAILED：' + e.message, true); });
     },
 
     _testTts: function () {
@@ -580,12 +584,12 @@
       if (!cred.capabilities.local && cred.id !== 'fish' && Api.isPlaceholderModel(model)) {
         App.toast(I18n.t('toast.needModel'), true); return;
       }
-      App.toast('合成中…');
-      Api.speak('やあ、聞こえてる？').then(function (url) {
-        if (!url) { App.toast('语音已关闭'); return; }
+      App.toast('Synthesizing…');
+      Api.speak('Hey, can you hear me?').then(function (url) {
+        if (!url) { App.toast('Voice is disabled'); return; }
         App.playUrl(url);
         App.toast('OK');
-      }).catch(function (e) { App.toast('失败：' + e.message, true); });
+      }).catch(function (e) { App.toast('Failed: ' + e.message, true); });
     },
 
     buildCharaForm: function () {
@@ -640,7 +644,7 @@
       var b = document.createElement('button');
       b.className = 'btn primary'; b.textContent = T('chara.saveBack');
       b.onclick = function () {
-        Config.save();          // the label promises a save, so do one
+        Config.save();
         App.toast(I18n.t('toast.saved')); App.showView('talk');
       };
       row.appendChild(b);

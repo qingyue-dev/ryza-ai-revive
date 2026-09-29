@@ -49,7 +49,7 @@
     'Amazing! What kind of adventure should we have next?'
   ];
 
-/* Side-quest pool (fallback + 「Let Ryza think of one」*/
+  /* Side-quest pool (fallback + 「Let Ryza think of one」*/
   var POOL = [
     { type: 'craft',   title: 'A New Recipe', desc: 'Come up with a synthesis we have never made before together with Ryza.', goal: 'Successfully complete synthesis 1 time', need: 1, cost: 3 },
 
@@ -77,16 +77,24 @@
     area_05: ['relic', 'cloth', 'ore', 'ironwood']
   };
   var RECIPES = [
-    { out: 'bottle', name: '回復のボトル', in: [['emeralia', 1], ['wasser', 1]] },
-    { out: 'bomb',   name: '爆弾瓶',       in: [['uni', 1], ['wasser', 1], ['ore', 1]] },
-    { out: 'charm',  name: 'お守りの指輪', in: [['relic', 1], ['cloth', 1]] }
+    { out: 'bottle', name: 'Healing Bottle', in: [['emeralia', 1], ['wasser', 1]] },
+    { out: 'bomb', name: 'Bomb Bottle', in: [['uni', 1], ['wasser', 1], ['ore', 1]] },
+    { out: 'charm', name: 'Lucky Charm Ring', in: [['relic', 1], ['cloth', 1]] }
   ];
   var PART_ITEMS = ['driftwood', 'ironwood', 'cloth', 'ore'];
-  var PART_NAMES = { driftwood: '船底の竜骨材', ironwood: 'マストの堅木', cloth: '大きな帆布', ore: '魔石入りの留め金' };
+  var PART_NAMES = {
+    driftwood: 'Ship Keel Timber',
+    ironwood: 'Sturdy Mast Wood',
+    cloth: 'Large Sailcloth',
+    ore: 'Magic Stone Fastener'
+  };
   var MONSTERS = [
-    { i: 1, name: 'モコモコ', area: 1 }, { i: 2, name: 'ビッグツノ', area: 1 },
-    { i: 3, name: '溶岩カニ', area: 2 }, { i: 4, name: '森の番人', area: 3 },
-    { i: 5, name: '遺跡の守卫像', area: 4 }, { i: 6, name: '星霜の竜', area: 5 }
+    { i: 1, name: 'Fluffy', area: 1 },
+    { i: 2, name: 'Big Horn', area: 1 },
+    { i: 3, name: 'Lava Crab', area: 2 },
+    { i: 4, name: 'Forest Guardian', area: 3 },
+    { i: 5, name: 'Ancient Ruins Guardian', area: 4 },
+    { i: 6, name: 'Frostfall Dragon', area: 5 }
   ];
 
   function itemName(id) { return Game.itemName(id); }
@@ -281,6 +289,7 @@
       var q = nowQuest();
       ctx = ctx || {};
       if (!q || q.complete) return { ok: false, line: L('qact.noquest', 'There are no quests right now. Let\'s have you come up with a new theme.') };
+      /* 免费任务作弊：不消耗体力 */
       var _freeStam = !!(window.Game && Game.cheatFreeQuest && Game.cheatFreeQuest());
       if (!_freeStam && !Game.canAct(q.cost)) return { ok: false, faint: true, line: L('qact.hungry', '……I\'m hungry. I want to go to a safe place and sleep before I pass out.…') };
 
@@ -465,6 +474,8 @@
       if (!q.complete && actLabel) {
         var act = document.createElement('button');
         act.className = 'mini-btn primary';
+        
+        /* 同上，按钮上显示 FREE */
         var _isFreeQ = !!(window.Game && Game.cheatFreeQuest && Game.cheatFreeQuest());
         act.textContent = actLabel + (_isFreeQ ? '（FREE ✨）' : '（' + I18n.t('quest.cost') + ' ' + q.cost + '）');
         act.onclick = function () {

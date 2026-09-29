@@ -3,13 +3,7 @@
 (function (global) {
   'use strict';
 
-  /* ---------------------------------------------------------------- constants
-     N.E.K.O.'s measured values. The first group is its energy throttle
-     (endpointing/throttle_policy.py: bootstrap_onset 0.35, min_onset 0.20,
-     max_onset 0.65, baseline_alpha 0.05); the second is its utterance lifecycle
-     (min speech 200 ms, candidate silence 300 ms, pre-roll 700 ms, trailing
-     400 ms). They are kept here as named constants so a future calibrated value
-     replaces one number instead of being buried in a branch. */
+  /* constants */
   var BOOTSTRAP_ONSET = 0.35;
   var MIN_ONSET = 0.20; 
   var MAX_ONSET = 0.65; 
@@ -21,7 +15,7 @@
   var TARGET_RATE = 16000;
   var FRAME_MS = 50; 
 
-  /* ---------------------------------------------------------------- state */
+  /* state */
   var _transcribe = null;
   var _notice = null;
   var _sink = null;
@@ -49,10 +43,8 @@
     try { return (_lang && _lang()) || 'ja'; } catch (e) { return 'ja'; }
   }
 
-  /* ------------------------------------------------------------ pure helpers */
+  /* pure helpers */
   function clamp01(v) { return v < 0 ? 0 : (v > 1 ? 1 : v); }
-
-  /* RMS of a frame, normalised so that a full-scale sine is 1. Frames arrive as Float32 in [-1,1] from the worklet, or as Int16 from the fallback path. */
   function frameLevel(frame, isInt16) {
     if (!frame || !frame.length) return 0;
     var sum = 0, i, v;
@@ -101,7 +93,7 @@
     return new Blob([buf], { type: 'audio/wav' });
   }
 
-  /* ------------------------------------------------------------ gate (pure) */
+  /* gate (pure) */
   function feedLevel(level, now) {
     level = clamp01(Number(level) || 0);
     _level = level;
@@ -169,7 +161,7 @@
     }
   }
 
-  /* ------------------------------------------------------------------ capture */
+  /* capture */
   var WORKLET_SRC = [
     'class RyzaTap extends AudioWorkletProcessor {',
     '  process(inputs) {',
@@ -267,7 +259,7 @@
     CANDIDATE_SILENCE_MS: CANDIDATE_SILENCE_MS,
     TARGET_RATE: TARGET_RATE,
 
-    /* ------------------------------------------------------------- ports */
+    /* ports */
     setTranscriber: function (fn) { _transcribe = (typeof fn === 'function') ? fn : null; },
     setNotice: function (fn) { _notice = (typeof fn === 'function') ? fn : null; },
     setSink: function (fn) { _sink = (typeof fn === 'function') ? fn : null; },
@@ -275,7 +267,7 @@
     setClock: function (fn) { _now = (typeof fn === 'function') ? fn : _now; },
     setOnset: function (fn) { _ononset = (typeof fn === 'function') ? fn : null; },
 
-    /* ------------------------------------------------------------- state */
+    /* state */
     available: function () {
       var md = global.navigator && global.navigator.mediaDevices;
       return !!(md && md.getUserMedia);
@@ -312,7 +304,7 @@
 
     toggle: function () { return Stt.isListening() ? Stt.stop() : Stt.start(); },
 
-    /* ------------------------------------------------- exposed for tests */
+    /* exposed for tests */
     _feedLevel: feedLevel,
     _pushFrame: pushFrame,
     _frameLevel: frameLevel,

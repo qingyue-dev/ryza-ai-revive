@@ -376,6 +376,7 @@
 
     locked: function (areaId) {
       if (!window.Game || !Game.s) return false;
+      /* 解锁地图作弊：所有区域直接放行 */
       if (window.Game && Game.cheatMap && Game.cheatMap()) return false;
       return !Game.s.sailed && areaId !== 'area_01';
     },

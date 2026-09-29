@@ -1,34 +1,11 @@
-/* Spine rendering: Ryza (foreground) + stage background.
+/* Spine rendering: Ryza (foreground) + stage background. */
 
-   The render path follows the official spine-ts 4.2 webgl example
-   (ManagedWebGLRenderingContext + explicit Matrix4 MVP + PolygonBatcher +
-   SkeletonRenderer). SceneRenderer's OrthoCamera is not used.
-
-   Camera: scene and character share one orthographic window (Avatar._view).
-   posture_camera.json gives the authored window per posture (sitting 1.93,
-   standing 1.45) and a closer ASMR pair; _applyCamera shrinks and shifts that
-   window until it fits inside the scene plate's painted box, so no viewport
-   aspect can expose unpainted art. The character is mapped through the same
-   window, which keeps her authored on-screen framing regardless of what the
-   plate forced on the camera — see the camera section for the full reasoning.
-
-   Emotion comes from gesture.json EmotionProfilesV4:
-   - idle: intensityProfiles.*.basePoses, mixed with mixDurationMin/Max
-   - face: expressionSets (absent weight = 1, explicit 0 = author-disabled),
-     re-rolled on the pose-reroll tick while she is not talking
-   - FX: intensityProfiles.*.effectSets → fxOnAnimNames / fxOffAnimNames
-     (setup-pose cheek/nose_hi stay on until the OFF clip + slot hide)
-   - gaze/finger: DriverDefs + lookAtBoneHierarchy + fingerTrack* / aim·roll */
 (function (global) {
   'use strict';
 
   var FALLBACK_LIP = 'facial_mouth_002_scrub_02';
-  var FALLBACK_IDLE = ['motion_A_001_idle', 'motion_A_002_idle', 'motion_A_005_idle',
-                       'motion_A_006_idle', 'motion_A_024_idle', 'motion_A_025_idle'];
-  /* posture_camera.json is relative: zoom 1.93 (sitting) is the reference the
-     table's world units were authored against, and it frames 1720 world units
-     of height on the reference viewport. Everything else scales from that, so
-     the stage never resizes when the costume or the posture changes. */
+  var FALLBACK_IDLE = ['motion_A_001_idle', 'motion_A_002_idle', 'motion_A_005_idle', 'motion_A_006_idle', 'motion_A_024_idle', 'motion_A_025_idle'];
+                       
   var REF_ZOOM = 1.93;
   var REF_H = 1720;
 
@@ -73,7 +50,6 @@
     return null;
   }
 
-  /* One WebGL context. Two stacked WebGL canvases flicker on Windows. */
   function makeHost(canvasId) {
     var canvas = document.getElementById(canvasId);
     var ctx;
@@ -100,7 +76,6 @@
       assets: new spine.AssetManager(host.ctx),
       skeleton: null, state: null, data: null,
       bounds: null, ready: false,
-      /* painted-plate box of the scene, measured once per skeleton */
       _cover: null, _coverDone: false,
       cssW: 0, cssH: 0, dpr: 1
     };
@@ -115,40 +90,17 @@
     sceneConfig: null,
     skinsIndex: null,
     _loadedSkelId: '',
-    /* ------------------------------------------------------------ player zoom
-       Source of the bounds: the reference implementation measured that zooming
-       BELOW 1.0 pushes the window past the painted plate and the cover clamp
-       then exposes black bars, so 1.0 is the floor -- only zoom IN is allowed.
-       The window shrinks with zoom, so the plate clamp can never fail. */
     PLAYER_ZOOM_MIN: 1.0,
     PLAYER_ZOOM_MAX: 2.5,
     PLAYER_ZOOM_STEP: 0.25,
-    /* How far the sprite may be dragged from its authored spot, as a share of
-       the visible window (both axes, either direction). */
     PLAYER_PAN_LIMIT: 0.4,
     _playerZoom: 1,
-    /* atlas page variant currently requested ('default' or e.g. 'nsfw').
-       Resolved per-costume by variantPageUrls — never a hardcoded skin id. */
     _atlasVariant: 'default',
     _variantMiss: {},
     _emotion: 'neutral',
     _attitude: 'agree',
     _talking: false,
     _idleTimer: 0,
-    /* -------------------------------------------------- gesture scheduling
-       Practices taken from the reference implementation (AgentAtelierR's
-       performance doc), which itself labels these timings as ITS OWN scheduling
-       choices rather than values recovered from the pack -- so they are marked
-       here as conventions, not official numbers:
-
-         talking: a light gesture every ~1.8-3.8 s, skipping the big C-track
-                  posture changes
-         idle:    every ~3.8-7.4 s, the full compatible pool is allowed
-         80/20:   80% of picks weighted by the official
-                  EmotionProfilesV4.armGroupWeights, 20% explore the rest of the
-                  compatible pool for the current posture
-         dedupe:  the last 5 group ids are avoided unless nothing else is left
-         hold:    no auto gesture for 2.3 s after an LLM semantic action        */
     GESTURE_TALK: [1.8, 3.8],
     GESTURE_IDLE: [3.8, 7.4],
     GESTURE_EXPLORE: 0.2,
@@ -166,12 +118,8 @@
     _mouthIdle: null,
     _lipSync: FALLBACK_LIP,
     _view: { left: 0, bottom: 0, worldW: 1, worldH: 1, cssW: 1, cssH: 1 },
-    /* the authored (unclamped) window _view was solved from — _placeCharacter
-       maps the character through it so her framing survives the clamp */
     _viewAuth: null,
-    /* head bone's setup-pose local Y for the loaded skin (eyeline align) */
     _headLocal: null,
-    /* sofa_root (etc.) bind-pose world pos — sitting stays on the midground */
     _midBind: null,
     _env: null,
     _look: { yaw: 0, pitch: 0, roll: 0, ty: 0, tp: 0, tr: 0, hold: 2, trans: 0.8, t: 0 },
@@ -205,16 +153,10 @@
     _quadBuf: null,
     _typeMap: null,
     _lookMul: 1,
-    /* frozen pointer reference during one-shots (see _applyLook) */
     _faceRef: null,
     _pokeMouthHold: false,
-    /* FX pick memo (emotion|band) so one reply does not re-roll blush twice */
     _fxPick: null,
-    /* gaze driver cycle: { band, spec, left } honours ambientBindings
-       repeatMin/repeatMax (source repeats the same driver pattern) */
     _lookCyc: null,
-    /* pointer-follow weight 0..1, eased with projectConfig.gazeReturnToFront
-       (source returns gaze to front over 0.4–0.8 s, never snaps) */
     _ptrW: 0,
     _ptrN: 0,
     _dt: 0,
@@ -223,26 +165,9 @@
     _closedHold: 0,
     _exprBand: '',
     _rollSm: 0,
-    /* Continuous tension (projectConfig.tensionConfig): ramps to 1 while
-       talking, then decays high → mid → low at the band's decay rate.
-       Drives gaze bindings, torso weights and blink cadence. */
     _tension: 0,
-
-    /* ------------------------------------------------------------- setup
-       The renderer never reaches into the UI. Two things it needs from the
-       host are injected instead: a notice sink (for user-visible failures) and
-       a voice source (which analyser to read, and whether playback is running).
-       Both default to inert, so avatar.js still loads standalone in the
-       headless regressions. */
     _notice: null,
     _voiceSource: null,
-
-    /* Outcome of the last variant request, plus the (outfit, variant) pairs the
-       host has already been told about. Staying on the default page is silent
-       by design, but "silently nothing" is what made the undress toggle look
-       broken (issue #4: the only evidence was a 404 in the console). The
-       renderer does not own wording — it reports the fact and the host decides
-       what to say, once per pair rather than once per turn. */
     _variantState: { variant: '', applied: false },
     _variantNoticed: {},
 
@@ -251,7 +176,7 @@
     },
 
     _notify: function (msg, isErr) {
-      try { if (Avatar._notice) Avatar._notice(msg, !!isErr); } catch (e) { /* notice must never break rendering */ }
+      try { if (Avatar._notice) Avatar._notice(msg, !!isErr); } catch (e) { }
     },
 
     setVoiceSource: function (fn) {
@@ -261,7 +186,7 @@
     init: function (onReady) {
       Avatar.host = makeHost('scene-canvas');
       if (!Avatar.host) {
-        Avatar._notify('此浏览器不支持 WebGL，立绘无法显示', true);
+        Avatar._notify('This guide does not support WebGL, and the system is not legal.', true);
         return;
       }
       Avatar.scene = makeLayer(Avatar.host);
@@ -282,13 +207,6 @@
       }).catch(function () { onReady && onReady(); });
     },
 
-    /* Layout-px → viewport-px scale for an element inside #phone (Electron
-       UI zoom, see App._fitUi). Self-measured so it is correct under BOTH
-       zoom conventions: standardised Chrome ≥128 reports the rect in
-       viewport px (ratio = zoom), older WebViews report it in layout px
-       (ratio = 1 — and they never get zoomed anyway, the gate is Electron).
-       Every clientX/Y→layout conversion divides by this; the canvas backing
-       store multiplies its dpr by it. */
     _cssZoom: function (el) {
       if (!el || !el.clientWidth || !el.getBoundingClientRect) return 1;
       var w = el.getBoundingClientRect().width;
@@ -312,55 +230,26 @@
         if (!L) return;
         L.cssW = w; L.cssH = h; L.dpr = dpr;
       });
-      /* one pass: _applyCamera solves the window and places the character */
       Avatar._applyCamera();
     },
 
     outfitOf: function (id) {
-      /* 去掉姿态尾号得到「衣服 base」。空 id 时取皮肤表第一条，
-         不写死具体皮肤（换成别的角色时这里不用改）。 */
       var fallback = (Avatar.skinsIndex && Avatar.skinsIndex[0] && Avatar.skinsIndex[0].id) || '';
       return String(id || fallback).replace(/_(01|99)$/, '');
     },
 
-    /* --------------------------------------------------- posture (source) */
-    /* Which skeleton to show.
-       The gesture files are the authority on what each skin IS:
-         crf_skn_002_0001_01 → name 座りライザ（普通座り）, projectConfig
-                               .postureKey = posture_sitting (barefoot, vest +
-                               shorts, folded leg chain)
-         crf_skn_002_0001_99 → name ライザ(3の通常)_立ち,  projectConfig
-                               .postureKey = posture_standing (jacket, long
-                               socks, boots, straight 1704u leg chain)
-       so sitting ⇒ _01 and standing ⇒ _99, and the DEFAULT is standing — the
-       original starts on her feet, which is the whole reason the reversed
-       default read as "the models are swapped from the start".
-       The scene's `midgroundPostures` is NOT a constraint on that: 196 of the
-       200 shipped scene/time combinations list posture_sitting only (the
-       midground furniture — sofa_root etc. — was authored for her seated), and
-       gating the skin on it would make sitting unavoidable everywhere. It says
-       which posture the scene's own midground was drawn for (see
-       _primaryPosture), and nothing besides that. */
+    /* posture (source) */
     _scenePostures: function () {
       var cfg = Avatar.sceneConfig && Avatar.sceneConfig.config;
       return (cfg && cfg.midgroundPostures) || [];
     },
 
     postureKey: function () {
-      /* The stored choice is the player's, and it is honoured on ANY stage now
-         (the chip used to exist on the single scene whose midground lists both
-         postures, which made sitting unreachable in 196 of the 200 shipped
-         scene/time combinations — reported as "the Android build is missing
-         the sit/stand button"). It is still bounded by what the worn outfit
-         can actually draw, and by nothing else: standing stays the default,
-         and a stage change returns to it (App._loadSceneFor reads
-         shouldResetPosture), so a stale value cannot leak across scenes — the
-         failure this gate was originally added for. */
       var want = 'posture_standing';
       try {
         var stored = Config.section('state').posture;
         if (stored === 'posture_standing' || stored === 'posture_sitting') want = stored;
-      } catch (e) { /* Config not ready */ }
+      } catch (e) { }
       var have = Avatar.outfitPostures();
       if (have.length && have.indexOf(want) < 0) {
         want = have.indexOf('posture_standing') >= 0 ? 'posture_standing' : have[0];
@@ -368,11 +257,6 @@
       return want;
     },
 
-    /* Which postures the worn outfit can be rendered in (ids encode it in the
-       tail: _01 sitting / _99 standing, the same rule resolveSkel follows).
-       Only outfit 0001 ships both in the official pack; the ASMR bikinis exist
-       sitting only, and an imported ZIP is always one posture — those are
-       exactly the cases where offering a toggle would swap her clothes. */
     outfitPostures: function (outfitId) {
       var base = '';
       try {
@@ -392,26 +276,14 @@
       return out;
     },
 
-    /* The sit/stand chip is offered when the outfit has a variant for both —
-       the only condition under which the switch is really available (see
-       outfitPostures). */
     postureSwitchable: function () {
       return Avatar.outfitPostures().length > 1;
     },
 
-    /* A stage change returns to the source default (standing), so the choice
-       belongs to the stage the player was in. The app applies this at the end
-       of loadScene; keeping the decision here keeps it next to the posture
-       rules instead of being re-derived in the UI layer. */
     shouldResetPosture: function () {
       return Avatar.postureKey() !== 'posture_standing';
     },
 
-    /* Which posture the skeleton ACTUALLY on screen represents. During a
-       posture or stage swap the requested posture and the loaded skin disagree
-       for a moment (loadScene re-solves the camera before loadSkin has swapped
-       the skeleton) — placing the old skeleton with the new posture's camera
-       flashed a 1.488× sitting model on the next stage. */
     _loadedPosture: function () {
       var id = Avatar._loadedSkelId || '';
       var m = /_(01|99)$/.exec(id);
@@ -419,17 +291,10 @@
                : Avatar.postureKey();
     },
 
-    /* True only when the scene lists both postures — in the shipped pack that
-       is 隠れ家前 / stage_01_002_01, at every time of day. It no longer decides
-       whether the player MAY switch (the outfit does, see postureSwitchable);
-       it decides whether the background window can be solved independently of
-       the posture, which is what keeps the background still while toggling. */
     supportsBothPostures: function () {
       return Avatar._scenePostures().length > 1;
     },
 
-    /* The posture a scene's midground was drawn for first — used for the
-       posture-independent background window, see _applyCamera. */
     _primaryPosture: function () {
       var m = Avatar._scenePostures();
       return m[0] || 'posture_standing';
@@ -444,12 +309,6 @@
       var outfit = Avatar.outfitOf(outfitId);
       var wantSuf = Avatar.postureKey() === 'posture_standing' ? '99' : '01';
       var otherSuf = wantSuf === '99' ? '01' : '99';
-      /* 优先：同一件衣服的目标姿态 → 同件衣服的另一姿态。
-         然后**按数据兜底**，不再写死某个皮肤 id：
-           ① 任何「以目标姿态结尾」且有骨骼的皮肤（官方把姿态编码在 id 尾号）
-           ② 任何有骨骼的皮肤
-         写死过的版本（'crf_skn_002_0001_*'）在只发两套皮肤时是对的，
-         但当时那条注释说「只有 0001 有骨骼」——加了 4 套官方皮肤后已经过时。 */
       var order = [outfit + '_' + wantSuf, outfit + '_' + otherSuf];
       var i, id, hit;
       for (i = 0; i < order.length; i++) {
@@ -472,29 +331,17 @@
       return null;
     },
 
-    /* Injected port: where does an atlas page texture come from?
-       Imported outfits live in IndexedDB (crfstore.js) and hand out blob URLs;
-       the render layer must not know that. fn(skinId, pageName) -> url|null|Promise.
-       Inert by default, so a headless regression can load this file alone. */
     _pageSource: null,
     setPageSource: function (fn) {
       Avatar._pageSource = (typeof fn === 'function') ? fn : null;
     },
 
-    /* Sanitize a variant tag so it can only be a filename suffix. */
     _cleanVariant: function (name) {
       var n = String(name || 'default').toLowerCase();
       if (!n || n === 'default' || n === 'off' || n === 'none') return '';
       return /^[a-z0-9_]{1,32}$/.test(n) ? n : '';
     },
 
-    /* Candidate URLs for one atlas page's variant texture.
-       Any future costume works the same way:
-         1. skins.json entry.variants[name] (string, or {pageName: url})
-         2. `{atlasDir}/{pageBase}{name}.png`   e.g. crf_skn_002_0001_99nsfw.png
-         3. `{atlasDir}/{pageBase}_{name}.png`  e.g. crf_skn_002_0002_01_nsfw.png
-       Avatar does not know which outfits exist — missing files stay on the
-       default page (intent can still be on, so a later wearable costume applies). */
     variantPageUrls: function (atlasUrl, pageName, variant) {
       variant = Avatar._cleanVariant(variant);
       if (!variant) return [];
@@ -532,9 +379,6 @@
       L._atlasVarName = '';
     },
 
-    /* Own Image+GLTexture path — must NOT go through AssetManager.loadTexture:
-       a 404 would stick in assets.errors and the next loadSkin poll would
-       treat the whole skeleton as failed. */
     _loadPageImage: function (L, url, cb) {
       if (!L || !url || typeof Image === 'undefined' || !spine || !spine.GLTexture) {
         cb(null); return;
@@ -549,8 +393,6 @@
       img.src = url;
     },
 
-    /* 先问导入源：这件服装是不是玩家导入的？是就直接用它的贴图（blob URL）。
-       不是则返回 null，继续走正常的 URL 候选。 */
     _tryInjectedPage: function (L, pageName, cb) {
       if (typeof Avatar._pageSource !== 'function' || !Avatar._loadedSkelId) { cb(null); return; }
       var res;
@@ -580,9 +422,6 @@
       })();
     },
 
-    /* 导入服装：atlas 的贴图行是裸文件名，blob 地址解析不到它，
-       所以这里把导入的贴图（blob URL）直接设成**基础**贴图。
-       成功返回 true —— 调用方据此决定是否还要走变体逻辑。 */
     _applyImportedPages: function (L, cb) {
       if (typeof Avatar._pageSource !== 'function' || !L || !L._atlas) { cb(false); return; }
       var pages = L._atlas.pages || [];
@@ -655,10 +494,7 @@
         });
       });
     },
-
-    /* A variant was asked for and this outfit has no texture for it. Returns
-       the pair once; the host turns that into a sentence (and a dedupe key per
-       outfit+variant lives here, because this is where the 404s happen). */
+    
     takeVariantMiss: function () {
       var st = Avatar._variantState || {};
       if (!st.variant || st.applied) return null;
@@ -668,32 +504,7 @@
       return { skin: Avatar._loadedSkelId || '', variant: st.variant };
     },
 
-    /* ------------------------------------------------------------- camera */
-    /* One orthographic window (Avatar._view) maps world units to the canvas
-       and is shared by the scene plate and the character.
-
-       posture_camera.json supplies the AUTHORED window per posture (sitting
-       zoom 1.93 / standing 1.45) plus a closer ASMR pair. Two of its
-       assumptions do not survive contact with the shipped art:
-
-       1. the standing window is 2289u tall, but the only dual-posture stage
-          (隠れ家前 / stage_01_002_01) paints far_bg over y 629..2701 — 2072u —
-          and its second quad (`floor`, a foreground strip at y −2701..−1064)
-          leaves the band between them UNPAINTED. The standing window's bottom
-          edge walked into that band: a black bar across the lower third of the
-          screen, and a different window centre per posture, so the background
-          visibly jumped when the player toggled sit/stand;
-       2. worldW is worldH × canvas aspect, so any wide viewport (landscape
-          desktop, tablet) walks outside the plate on both sides.
-
-       So the window actually used is the authored window of the scene's
-       PRIMARY posture — never enlarged, shrunk and shifted until it fits
-       inside the plate's painted box (`_coverFor`). No black bars at any
-       aspect ratio, and because the window does not depend on the player's
-       choice the background no longer moves on a posture toggle. The
-       character is mapped through that window by `_placeCharacter` so she
-       keeps the on-screen framing the table asks for. Sitting on a midground
-       (`sofa_root`) keeps world X/Y so she does not float off the furniture. */
+    /* camera */
     _coverFor: function (L) {
       if (!L || !L.skeleton) return null;
       if (L._coverDone) return L._cover || null;
@@ -701,8 +512,6 @@
       L.skeleton.updateWorldTransform(spine.Physics.none);
       for (i = 0; i < slots.length; i++) {
         slot = slots[i];
-        /* Alpha is deliberately ignored: the scene's only animation is a fade,
-           so measuring mid-fade must not call the plate empty. */
         if (!slot.bone.active || !slot.data.visible) continue;
         att = slot.getAttachment && slot.getAttachment();
         if (!att || att instanceof spine.BoundingBoxAttachment ||
@@ -728,14 +537,7 @@
           if (verts[j + 1] > y1) y1 = verts[j + 1];
         }
         if (!(x1 > x0) || !(y1 > y0)) {
-          /* A RegionAttachment keeps its four corners in an `offset` cache
-             filled by updateRegion(); that cache can still be empty the first
-             time we look (scene load happens before the first draw, and a
-             headless harness has no real atlas). Derive the same box from the
-             attachment size and the bone matrix rather than reporting "no
-             plate" — a missed cover means a missed clamp means black bars. */
-          if (!(att instanceof spine.RegionAttachment) || !att.width || !att.height ||
-              !isFinite(slot.bone.a)) continue;
+          if (!(att instanceof spine.RegionAttachment) || !att.width || !att.height || !isFinite(slot.bone.a)) continue;
           var hw = att.width / 2, hh = att.height / 2, bn = slot.bone;
           var corners = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]];
           x0 = y0 = 1e9; x1 = y1 = -1e9;
@@ -749,8 +551,6 @@
           }
           if (!(x1 > x0) || !(y1 > y0)) continue;
         }
-        /* The LARGEST quad, not the union: a far-away foreground strip would
-           otherwise pretend the gap under the backdrop is covered. */
         if (!best || (x1 - x0) * (y1 - y0) > best.w * best.h) {
           best = { x0: x0, x1: x1, y0: y0, y1: y1, w: x1 - x0, h: y1 - y0 };
         }
@@ -760,48 +560,23 @@
       return best;
     },
 
-    /* Authored window for one posture (+ the ASMR close-up when on). */
     _camParams: function (postureKey, asmr) {
-      var pack = (Avatar.postureCam &&
-                  Avatar.postureCam[postureKey || Avatar.postureKey()]) ||
-                 (Avatar.postureCam && Avatar.postureCam.posture_sitting) || {};
-      var base = pack.base || { offsetX: 0, offsetY: 0, scale: 1,
-                                cameraZoom: REF_ZOOM, cameraPanX: 0, cameraPanY: 900 };
+      var pack = (Avatar.postureCam && Avatar.postureCam[postureKey || Avatar.postureKey()]) || (Avatar.postureCam && Avatar.postureCam.posture_sitting) || {};
+      var base = pack.base || { offsetX: 0, offsetY: 0, scale: 1, cameraZoom: REF_ZOOM, cameraPanX: 0, cameraPanY: 900 };
       var zoom = Number(base.cameraZoom); if (!(zoom > 0.2)) zoom = REF_ZOOM;
       var panX = Number(base.cameraPanX) || 0;
       var panY = Number(base.cameraPanY) || 0;
       var a = (asmr === undefined ? Avatar._asmrOn() : asmr) && pack.asmr;
       if (a) {
         var az = Number(a.cameraZoom);
-        /* ASMR zoom is the APK table (sitting 3.5 / standing 2.5). Do not
-           invent a smaller zoom — the original close-up is that tight.
-           asmr.cameraPanY (~3200) is a different space and would aim at
-           empty sky, so we lift toward the face instead. */
         if (az > 0.2) { panY += (az / zoom - 1) * 280; zoom = az; }
         if (a.cameraPanX != null) panX = Number(a.cameraPanX) || 0;
       }
       var tight = zoom / REF_ZOOM;
       if (tight > 1.05) panY = panY + (tight - 1) * 140;
       var worldH = REF_H / Math.max(0.45, tight);
-      /* Normal-mode framing corrections (LOCAL calibration, same family as
-         the REF_H derivation — the official zoom→world-height mapping is
-         not in the package). Measured against the shipped screenshots:
-         standing must fit headwear→knees with margin (×1.42 of the derived
-         2289u); sitting rides ×1.25 so she doesn't fill the frame head→chest
-         next to the standing shot (she is sofa-locked in world space, so
-         only the window — not her placement — changes). ASMR close-ups keep
-         the authored table values. */
       if (!a) {
         var pk = postureKey || Avatar.postureKey();
-        /* Face-size calibration against the official shots (menu screenshot:
-           head box ≈ 18% of screen height, rabbit-bow top ~1%, thigh bottom
-           ~89% — everything fits ONLY at that size; at our earlier 1.42 the
-           face was ~31% and bow-vs-thighs became a zero-sum choice).
-           Screen face = BB_head box × scale / (authored window × factor):
-           standing 617×1.488/(2289×1.53)=0.263; the sitting factor keeps
-           parity through the skins' world-box ratio (655/617 × 1.488/1.0):
-           655/(1720×1.60)=0.238. LOCAL calibration — the official
-           zoom→world-height mapping is not in the package. */
         if (pk === 'posture_standing') worldH *= 1.53;
         else if (pk === 'posture_sitting') worldH *= 1.45;
       }
@@ -818,20 +593,11 @@
       };
     },
 
-    /* Solve the window to use, then place the character inside it. */
-    /* 上层（LLM 语义动作）在播动作时调这个：调度器会让出 2.3 秒，
-       避免两套手势互相覆盖。 */
     noteSemanticAction: function () {
       Avatar._semanticHold = Avatar.GESTURE_HOLD_AFTER_SEMANTIC;
       Avatar._gestureTimer = 0;
     },
 
-    /* 玩家缩放：只允许放大（见 PLAYER_ZOOM_MIN 的理由）。
-       Zoom and drag are CAMERA/character framing, not a change of posture or
-       scene: ＋－ magnify the whole stage (her included — the scale used to be
-       divided out again, so only the background moved, which is exactly what a
-       player reported as "the buttons do nothing"), and a drag slides HER
-       within the frame. Both are undone by ◎. */
     playerZoom: function () { return Avatar._playerZoom || 1; },
     zoomBy: function (delta) {
       var z = Avatar._playerZoom || 1;
@@ -849,11 +615,6 @@
       return 1;
     },
 
-    /* The window the player actually looks through: the clamped one, shrunk
-       around its centre by the zoom (lifted a little as it closes in, because
-       the authored framing sits her head above centre). Returned, never
-       stored: the character is placed against the CLAMPED window, so her
-       on-screen size and the plate fit do not depend on this. */
     _playerWindow: function (win) {
       if (!win || !win.worldW) return win;
       var zoom = Avatar._playerZoom || 1;
@@ -863,9 +624,6 @@
       return { left: cx - w / 2, bottom: cy - h / 2, worldW: w, worldH: h };
     },
 
-    /* Drag the sprite. dx/dy are layout px, positive = right/down (screen
-       space, so the world Y sign flips). Clamped to a share of the visible
-       window: a player may frame her, but not park her off the stage. */
     charPan: function () {
       return { x: Avatar._charPanX || 0, y: Avatar._charPanY || 0 };
     },
@@ -875,8 +633,6 @@
       var cam = Avatar._playerWindow(v);
       var perX = cam.worldW / v.cssW, perY = cam.worldH / v.cssH;
       Avatar._charPanX = Avatar._clampPan(Avatar._charPanX + dxPx * perX, cam.worldW);
-      /* Screen Y grows downwards, world Y upwards: the sprite follows the
-         finger. */
       Avatar._charPanY = Avatar._clampPan(Avatar._charPanY - dyPx * perY, cam.worldH);
       Avatar._placeCharacter();
       return Avatar.charPan();
@@ -896,23 +652,12 @@
       var host = Avatar.host, L = Avatar.scene || Avatar.avatar;
       if (!host || !L || !L.cssW || !L.cssH) return;
       var active = Avatar._camParams(Avatar._loadedPosture());
-      /* The background is framed by the scene's own posture, not the player's
-         choice, so toggling sit/stand cannot move it. On single-posture scenes
-         the two are the same window anyway. */
       var win = Avatar.supportsBothPostures()
         ? Avatar._camParams(Avatar._primaryPosture(), Avatar._asmrOn())
         : active;
       var cover = Avatar._coverFor(Avatar.scene);
       if (cover && cover.w > 0 && cover.h > 0) {
         var aspect = L.cssW / L.cssH;
-        /* Panel-aware slack: the bottom log panel (officially opaque) hides
-           art-less ground, so the window may extend below the painted plate
-           by exactly what the panel covers. This is what lets the SITTING
-           window keep its authored 1720u bottom (359) — the official sitting
-           shot shows her lap because the sofa is drawn below far_bg's edge,
-           and _coverFor (largest quad) doesn't see it. Top/left/right stay
-           hard-clamped; height may exceed the plate only by the covered
-           share. */
         var frac = Avatar._panelFrac || 0;
         var h = Math.min(win.worldH,
           Math.min(cover.h / Math.max(0.4, 1 - frac), cover.w / aspect));
@@ -920,21 +665,12 @@
         var bottom = win.bottom;
         var floorY = cover.y0 - h * frac;
         if (bottom < floorY) bottom = floorY;
-        /* h ≤ cover.h/(1-frac) above makes top+floor simultaneously
-           satisfiable, so the top clamp is unconditional now (the old
-           cover.h >= h guard skipped it for tall windows and let the top
-           edge poke above the art) */
         if (bottom > cover.y1 - h) bottom = cover.y1 - h;
         var left = win.left + (win.worldW - w) / 2;
         if (left < cover.x0) left = cover.x0;
         if (cover.w >= w && left > cover.x1 - w) left = cover.x1 - w;
         win = { left: left, bottom: bottom, worldW: w, worldH: h };
       }
-      /* Player zoom lives in the PROJECTION only: the window the character is
-         placed into stays the clamped one, so ＋/－ magnify the whole stage
-         together with her (the old code handed the zoomed window to
-         _placeCharacter as well, whose k = 1/zoom cancelled the magnification
-         for her and left only the background moving). */
       Avatar._view = {
         left: win.left, bottom: win.bottom,
         worldW: win.worldW, worldH: win.worldH, cssW: L.cssW, cssH: L.cssH
@@ -947,9 +683,6 @@
       Avatar._placeCharacter();
     },
 
-    /* Head bone's local Y (skeleton space, scale 1, setup pose) for the skin
-       that is currently loaded. Needed to align her eyeline — see
-       _placeCharacter. Cheap: one throwaway skeleton, once per skin load. */
     _measureHeadLocal: function () {
       var L = Avatar.avatar;
       Avatar._headLocal = null;
@@ -959,14 +692,9 @@
         sk.updateWorldTransform(spine.Physics.pose);
         var b = sk.findBone('head');
         if (b) Avatar._headLocal = b.worldY;
-      } catch (e) { /* no head bone → skip the alignment */ }
-    },
-
-    /* Place the character so her on-screen framing is what the table asks
-       for, whatever the plate did to the camera. Called every frame:
-       chara_root rides the scene's parallax. Sitting on sofa_root keeps
-       world-space X/Y (source: chara_root_offset / sofa compensation) —
-       remapping Y through the camera is what floated her off the seat. */
+      } catch (e) { }
+    }, 
+    
     _placeCharacter: function () {
       var L = Avatar.avatar, S = Avatar.scene;
       if (!L || !L.skeleton) return;
@@ -988,19 +716,12 @@
       var sx, sy, sc = cam.scale * k;
       if (Avatar._seatedOnMid()) {
         sx = x;
-        sy = y;        /* furniture-locked: she sits ON the sofa, no lift —
-                          the source's whole point (sitting stays on sofa) */
+        sy = y;
       } else {
         sx = (v && a) ? v.left + (x - a.left) * k : x;
         sy = (v && a) ? v.bottom + (y - a.bottom) * k : y;
-        /* Eyeline only when she is not locked to furniture. Target = the
-           head-BONE fraction of the window (measured live): standing 0.67
-           lands the BB_head box top ≈ 118px with the rabbit-bow fully in
-           frame; sitting keeps the table's own 0.70 (no push fires within
-           ±0.10). ASMR keeps its tight 0.50 close-up. */
         if (Avatar._headLocal != null && v && v.worldH > 0) {
-          var target = Avatar._asmrOn() ? 0.50
-            : (Avatar._loadedPosture() === 'posture_standing' ? 0.70 : 0.71);
+          var target = Avatar._asmrOn() ? 0.50 : (Avatar._loadedPosture() === 'posture_standing' ? 0.70 : 0.71);
           var frac = (sy + Avatar._headLocal * sc - v.bottom) / v.worldH;
           if (Math.abs(frac - target) > 0.10) sy += (target - frac) * v.worldH;
         }
@@ -1011,13 +732,9 @@
     },
 
     _seatedOnMid: function () {
-      return Avatar._loadedPosture() === 'posture_sitting' &&
-             Avatar._midBind && Avatar._midBind.name;
+      return Avatar._loadedPosture() === 'posture_sitting' && Avatar._midBind && Avatar._midBind.name;
     },
 
-    /* Bind-pose world of the midground seat (sofa_root). Source
-       `_currentSofaRootCompensationOffset` — character follows the sofa
-       when parallax moves it, instead of sitting in empty air. */
     _cacheMidBind: function (L) {
       Avatar._midBind = null;
       if (!L || !L.skeleton) return;
@@ -1049,19 +766,15 @@
       return inside;
     },
 
-    /* Part priority when several BB_* boxes overlap (they do — the author's
-       boxes are generous rectangles). Specific parts win, body is the catch-all. */
     _PART_PRIORITY: ['head', 'breast', 'weast', 'arm_l', 'arm_r', 'body'],
 
     _bbMap: function () {
-      return (Avatar.gesture && Avatar.gesture.projectConfig &&
-              Avatar.gesture.projectConfig.hitPartNames) || {
+      return (Avatar.gesture && Avatar.gesture.projectConfig && Avatar.gesture.projectConfig.hitPartNames) || {
         BB_head: 'head', BB_body: 'body', BB_arm_L: 'arm_l', BB_arm_R: 'arm_r',
         BB_weast: 'weast', BB_breast: 'breast'
       };
     },
 
-    /* World-space polygon of a slot's bounding-box attachment, or null. */
     _bbPoly: function (slotName) {
       var L = Avatar.avatar;
       if (!L || !L.skeleton) return null;
@@ -1076,10 +789,6 @@
       return verts.length >= 6 ? verts : null;
     },
 
-    /* Is the world point on a *visible* part of the character? The BB_* boxes
-       reach far outside the drawn silhouette, so a bare box test lets clicks
-       in empty space next to her trigger reactions. Any rendered region/mesh
-       covering the point counts (setup-hidden FX/BB/clip slots don't). */
     _onCharacter: function (x, y) {
       var L = Avatar.avatar;
       if (!L || !L.skeleton) return false;
@@ -1110,10 +819,6 @@
       return false;
     },
 
-    /* Exact tap-to-part mapping: inside the highest-priority BB_* polygon
-       AND on the visible silhouette. Anything else returns null — there is
-       deliberately no bone-radius fallback anymore (the old 220u circle
-       swallowed half the background and was the misfire source). */
     hitPartAt: function (cssX, cssY) {
       var L = Avatar.avatar;
       if (!L || !L.ready || !L.skeleton) return null;
@@ -1132,7 +837,7 @@
       return null;
     },
 
-    /* ------------------------------------------------------- asset loading */
+    /* asset loading */
     _loadSpine: function (L, skelUrl, atlasUrl, done) {
       var a = L.assets;
       if (L === Avatar.avatar) {
@@ -1222,8 +927,6 @@
             Avatar._sittingId = Avatar._sittingFromPosture();
             Avatar._sitSlotCache = null;
             Avatar._measureHeadLocal();
-            /* Imported outfits: the atlas names its page as a bare filename, so
-               the texture has to come from the injected source (blob URL). */
             if (s.imported && Avatar._pageSource) {
               Avatar._applyImportedPages(L, function () {
                 Avatar.setEmotion(Avatar._emotion, Avatar._attitude, true);
@@ -1239,7 +942,7 @@
             cb && cb(null);
           });
         }).catch(function (e) {
-          Avatar._notify('皮肤加载失败：' + e.message, true);
+          Avatar._notify('Loss of skin:' + e.message, true);
           cb && cb(e);
         });
       };
@@ -1255,7 +958,7 @@
         .then(function (scenes) {
           var stage = scenes[stageId];
           var entry = stage && (stage[tod] || stage[Object.keys(stage)[0]]);
-          if (!entry) throw new Error('没有这个场景：' + stageId + '/' + tod);
+          if (!entry) throw new Error('Lost scene：' + stageId + '/' + tod);
           L.ready = false;
           var cfgP = entry.config
             ? fetch(entry.config).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })
@@ -1264,10 +967,7 @@
             Avatar.sceneConfig = cfg;
             Avatar._loadSpine(L, entry.skel, entry.atlas, function (err) {
               if (err) { cb && cb(err); return; }
-              /* Scene clips are only fade in/out (1s). Looping fade_in restarts
-                 from transparent every second — that is the background flicker. */
-              var fade = pickAnim(L.data, 'anm_fade_in') ||
-                         pickAnim(L.data, 'anm_fade_in_all');
+              var fade = pickAnim(L.data, 'anm_fade_in') || pickAnim(L.data, 'anm_fade_in_all');
               if (fade) {
                 var tr = L.state.setAnimation(0, fade, false);
                 tr.mixDuration = 0;
@@ -1275,11 +975,8 @@
               Avatar._applySceneConstraints(L, cfg);
               Avatar._cacheMidBind(L);
               Avatar.resize();
-              /* 默认皮肤的唯一来源是 Config 的 state.skin（它自己带默认值），
-                 这里不再写第二遍字面量。 */
               var st0 = (window.Config && Config.section('state')) || {};
-              var outfit = st0.skin || (Avatar.skinsIndex && Avatar.skinsIndex[0] &&
-                                        Avatar.skinsIndex[0].id) || '';
+              var outfit = st0.skin || (Avatar.skinsIndex && Avatar.skinsIndex[0] && Avatar.skinsIndex[0].id) || '';
               Avatar.loadSkin(outfit, cb);
             });
           });
@@ -1287,8 +984,6 @@
         .catch(function (e) { cb && cb(e); });
     },
 
-    /* JSON stores mixes as percents (7.5, 100); the .skel already has 0–1.
-       Re-apply so a rebuilt scene still matches the authored parallax. */
     _applySceneConstraints: function (L, cfg) {
       var ov = cfg && cfg.config && cfg.config.constraintOverrides;
       if (!ov || !L || !L.skeleton) return;
@@ -1311,7 +1006,7 @@
       }
     },
 
-    /* --------------------------------------------------------- expression */
+    /* expression */
     _profile: function (emotion) {
       var g = Avatar.gesture;
       var map = g && g.emotionalGesture && g.emotionalGesture.EmotionProfilesV4;
@@ -1393,18 +1088,13 @@
       return n ? sum / n : 0;
     },
 
-    /* Idle↔idle. Distance mix only when MixDurationPoses.sourceHash matches
-       the live skeleton hash; otherwise same-type short mix / cross-type random. */
     _mixBetween: function (fromName, toName, emotion) {
       var r = Avatar._mixRange(emotion);
       var sat = Number(Avatar._pc().mixDurationSaturationRatio);
       if (!(sat > 0)) sat = 0.1;
       var close = r.min * sat;
       if (!fromName || !toName || fromName === toName) return close;
-      /* Gesture MixDurationPoses is shipped with this skel. Use bone distance
-         when the table has both clips; hash match is preferred but not required. */
-      if (Avatar._mixHashOk() ||
-          (Avatar._hasPoseBones(fromName) && Avatar._hasPoseBones(toName))) {
+      if (Avatar._mixHashOk() || (Avatar._hasPoseBones(fromName) && Avatar._hasPoseBones(toName))) {
         var dist = Avatar._poseDist(fromName, toName);
         var t = 1 - Math.exp(-(dist || 0) / 180);
         return close + t * (r.max - close);
@@ -1416,8 +1106,6 @@
       return r.min + Math.random() * (r.max - r.min);
     },
 
-    /* One-shots overlay the base idle (fixedBasePoseMode). Enter is the
-       saturation mix; empty delay 0 so fade starts at clip end, not 0.2s in. */
     _overlayMix: function (emotion) {
       var r = Avatar._mixRange(emotion);
       var sat = Number(Avatar._pc().mixDurationSaturationRatio);
@@ -1456,22 +1144,7 @@
       return 'sitting_normal';
     },
 
-    /* ---------------------------------------------------- official sitting rules
-       Source: gesture.emotionalGesture.SittingSets / SittingMandatorySlots
-       (present since 1.0.x; the old code never read them).
-
-       SittingSets entries are { newId, previousId, weight }:
-         weight > 0  -> that auto-transition is allowed
-         weight == 0 -> author-disabled
-       In the shipped data every SWITCH pair is 0 (only the stay-in-place pair is
-       99999), so the official client never auto-switches variants. Reading the
-       table instead of hardcoding "never" keeps that data-driven: if a costume
-       ships non-zero switch weights, this follows them.
-
-       SittingMandatorySlots  [ {SittingId, SlotId} ] means: while that sitting
-       variant is active, that slot must be driven by its own group (agura -> leg),
-       i.e. the layer must not be left to the default idle. */
-    /* 记下最近用过的组（上限 GESTURE_DEDUPE），供去重使用。 */
+    /* official sitting rules */
     _noteGroup: function (id) {
       if (!id) return;
       Avatar._recentGroups.push(id);
@@ -1488,8 +1161,6 @@
       return (g && g.SittingMandatorySlots) || [];
     },
 
-    /* 自动切换候选：从当前坐姿出发、官方权重 > 0 的目标坐姿。
-       官方数据里全是 0 ⇒ 返回空数组 ⇒ 永不自动切换（与官方行为一致）。 */
     sittingAutoTargets: function () {
       var cur = Avatar._sittingId || 'sitting_normal';
       var out = [];
@@ -1501,8 +1172,6 @@
       return out;
     },
 
-    /* 当前坐姿下被强制占用的槽位（官方 agura → leg）。
-       每帧会被问几次，所以按坐姿缓存 —— 换姿势或换服装时清。 */
     _sitSlotCache: null,
     _sitSlotCacheFor: '',
     sittingMandatorySlots: function () {
@@ -1516,8 +1185,6 @@
       return out;
     },
 
-    /* 手动指定坐姿变体（官方数据里没有自动切换，只留这一个入口给上层调用）。
-       仅当 SittingSets 里存在该 id 时才接受。 */
     setSittingVariant: function (id, cb) {
       var known = {};
       Avatar._sittingSets().forEach(function (x) { known[x.newId] = 1; known[x.previousId] = 1; });
@@ -1624,20 +1291,15 @@
 
     _ioClip: function (data, activeName, phase) {
       if (!activeName) return null;
-      /* The direction lives in armInOutPartConfig (gesture.json), not on the
-         project root — read it where it is, keep old root lookup as a nod. */
       var root = Avatar._pc();
       var cfg = root.armInOutPartConfig || {};
       var dir = cfg.samePartDetourDirection || root.samePartDetourDirection || 'up';
       var base = String(activeName).replace(/_active$/, '');
-      return pickAnim(data, base + '_' + phase + '_' + dir) ||
-             pickAnim(data, base + '_' + phase + '_up') ||
-             pickAnim(data, base + '_' + phase + '_down');
+      return pickAnim(data, base + '_' + phase + '_' + dir) || pickAnim(data, base + '_' + phase + '_up') || pickAnim(data, base + '_' + phase + '_down');
     },
 
     _motionGroups: function () {
-      return (Avatar.gesture && Avatar.gesture.emotionalGesture &&
-              Avatar.gesture.emotionalGesture.MotionGroups) || [];
+      return (Avatar.gesture && Avatar.gesture.emotionalGesture && Avatar.gesture.emotionalGesture.MotionGroups) || [];
     },
 
     _groupApplies: function (g, idleName) {
@@ -1662,10 +1324,6 @@
       return '';
     },
 
-    /* Lookup by GroupId. The runtime reaches groups through _pickLayerGroup
-       (weighted, posture/pose filtered); this direct lookup exists for
-       scripts/motion_regression.js, which asserts the occupancy-letter → track
-       mapping straight from the data. */
     _findGroup: function (id) {
       if (!id) return null;
       var list = Avatar._motionGroups(), i;
@@ -1700,8 +1358,7 @@
     _sameAnims: function (a, b) {
       if (!a && !b) return true;
       if (!a || !b) return false;
-      return (a.AnimName_1 || '') === (b.AnimName_1 || '') &&
-             (a.AnimName_2 || '') === (b.AnimName_2 || '');
+      return (a.AnimName_1 || '') === (b.AnimName_1 || '') && (a.AnimName_2 || '') === (b.AnimName_2 || '');
     },
 
     _rankBlend: function (prev, next) {
@@ -1776,9 +1433,6 @@
 
     _pickLayerGroup: function (kind, idleName, poseType, preferRest) {
       var restId = kind === 'arm' ? Avatar._restGroupId() : '';
-      /* Official SittingMandatorySlots: while a variant that mandates this slot
-         is active, the slot must be driven by its own group -- never left empty.
-         Data-driven: with no mandate (the shipped default) nothing changes. */
       var mandated = Avatar.sittingMandatorySlots().indexOf(kind) !== -1;
       var data0 = Avatar.avatar && Avatar.avatar.data;
       function resolvable(g) {
@@ -1794,25 +1448,17 @@
           return Avatar._weighted(rest, function (g) { return Number(g.VariantWeight) || 1; });
         }
       }
-      var weights = kind === 'torso' ? Avatar._torsoWeights(poseType)
-                  : kind === 'leg' ? null
-                  : Avatar._armWeights(poseType);
+      var weights = kind === 'torso' ? Avatar._torsoWeights(poseType) : kind === 'leg' ? null : Avatar._armWeights(poseType);
       var groups = Avatar._motionGroups().filter(function (g) {
         if (Avatar._occKind(g) !== kind || !Avatar._groupApplies(g, idleName)) return false;
-        /* Some authored groups reference clips the animator retired
-           (…_active_ignore); playing those tracks would silently drop the
-           limb to the base pose. Only groups with a resolvable clip can win. */
         if (!resolvable(g)) return false;
         if (weights) return Number(weights[g.GroupId]) > 0;
         return (Number(g.GroupWeight) || 0) > 0;
       });
-      /* 最近用过的组先去重（官方权重照样参与，只是被压到最低优先级）；
-         只有当别的候选都用尽时才允许重复。 */
       var fresh = groups.filter(function (g) {
         return Avatar._recentGroups.indexOf(g.GroupId) === -1;
       });
       var pool = fresh.length ? fresh : groups;
-      /* 80% 按权重抽，20% 在全兼容池里探索（权重仍生效，只是不做去重外的筛选） */
       var explore = (Math.random() < Avatar.GESTURE_EXPLORE) && groups.length > 1;
       if (explore) {
         var hit = pool[Math.floor(Math.random() * pool.length) % pool.length];
@@ -1829,8 +1475,6 @@
         })[0] || null;
       }
       if (mandated) {
-        /* Mandated slot: take any applicable, resolvable group for this kind,
-           ignoring weights (the author said this slot must be driven). */
         return Avatar._motionGroups().filter(function (g) {
           return Avatar._occKind(g) === kind && Avatar._groupApplies(g, idleName) &&
                  resolvable(g);
@@ -1844,8 +1488,6 @@
       tr.mixDuration = mix;
       tr.alpha = alpha;
       tr.timeScale = speed;
-      /* Occupancy clips key full limb poses; MixBlend.add on those
-         doubles the bind pose and shoots the arms into pillars. */
       if (spine.MixBlend) tr.mixBlend = spine.MixBlend.replace;
     },
 
@@ -1860,8 +1502,6 @@
       var ts = parseFloat(speed); if (!(ts > 0)) ts = 1;
       var delay = Number(startDelay) > 0 ? Number(startDelay) : 0;
       var cur = st.getCurrent(track);
-      /* Pair delay must keep the previous limb clip applying. Empty mix=0
-         snaps to setup; addAnimation() on a looping current never starts. */
       var hold = delay > 0 && Avatar._entryLive(cur);
 
       function enqueue(name, loop, first) {
@@ -1930,8 +1570,7 @@
       Avatar._queueAddTrack(t0, group.AnimName_1, group.Alpha1, group.Speed1, blend, leaving1, 0);
       if (t1 == null) return;
       if (group.AnimName_2) {
-        Avatar._queueAddTrack(t1, group.AnimName_2, group.Alpha2 || group.Alpha1,
-                              group.Speed2 || group.Speed1, blend, leaving2, immediate ? 0 : Avatar._pairDelay());
+        Avatar._queueAddTrack(t1, group.AnimName_2, group.Alpha2 || group.Alpha1, group.Speed2 || group.Speed1, blend, leaving2, immediate ? 0 : Avatar._pairDelay());
       } else {
         L.state.setEmptyAnimation(t1, immediate ? 0 : blend);
       }
@@ -1997,7 +1636,6 @@
       }
       syncKind('arm', preferRest);
       syncKind('torso', false);
-      /* C (both legs) excludes I/J (left/right). */
       var both = syncKind('leg', false);
       if (both) {
         Avatar._layerSet('legL', null);
@@ -2029,10 +1667,6 @@
         eyeOpen: inten && inten.eyeBase, eyeClosed: null,
         eyebrow: inten && inten.eyebrowBase, mouth: inten && inten.mouthBase
       };
-      /* weight is OPTIONAL in the data (absent = 1); an explicit 0 is the
-         author switching a face off — 18 of the 30 standing happy/weak sets
-         and half of tease/weak are. Never fall back to a disabled set: with
-         nothing live, _applyFace uses the band's eye/eyebrow/mouthBase. */
       var live = sets.filter(function (s) {
         return s.weight == null || Number(s.weight) > 0;
       });
@@ -2047,9 +1681,6 @@
     },
 
     _effectNames: function () {
-      /* Memo per (emotion, band): setEmotion + setTalking both fire _syncFx
-         in the same reply; without the memo the blush/tear set re-rolled
-         twice per utterance (visible FX churn). */
       var memoKey = Avatar._emotion + '|' + Avatar._intensityBand();
       if (Avatar._fxPick && Avatar._fxPick.key === memoKey) return Avatar._fxPick.names;
       var inten = Avatar._intensity(Avatar._profile(Avatar._emotion));
@@ -2074,8 +1705,6 @@
       for (i = 0; i < sk.slots.length; i++) {
         slot = sk.slots[i];
         n = slot.data && slot.data.name || '';
-        /* Setup Multiply highlights (cheek_line / nose_hi) blow out under
-           straight-alpha. Overlay blush/pale/tear stay visible when FX is on. */
         if (/nose_hi|cheek_line/.test(n)) {
           slot.setAttachment(null);
           continue;
@@ -2086,8 +1715,6 @@
       }
     },
 
-    /* Setup pose keeps cheek_line / nose_hi attached. Empty mix on track 5
-       returns to that pose, so OFF clips must be held and slots cleared. */
     _syncFx: function (immediate) {
       var L = Avatar.avatar;
       if (!L || !L.ready || !L.state) return;
@@ -2124,7 +1751,6 @@
       } else {
         st.setEmptyAnimation(5, mix);
       }
-      /* Extra names in the same set (blush + tear) go on 7, 15, 16. */
       var extra = [7, 15, 16];
       for (i = 1; i < names.length && i - 1 < extra.length; i++) {
         clip = pickAnim(data, onMap[names[i]] || names[i]);
@@ -2176,14 +1802,6 @@
       Avatar._idleGap = a + Math.random() * Math.max(0, b - a);
       Avatar._idleTimer = 0;
       Avatar._poseType = nextType;
-      /* Periodic expression re-roll. The AOT snapshot carries the symbol
-         IntensitySettings.ExpressionRerollMin (and expressionRerollInterval
-         Min/Max as profile fields), but the shipped JSON leaves them out, so
-         the pose-reroll tick is the only cadence we can read from the pack.
-         Without it the face was only ever re-rolled on an emotion change or a
-         band flip, which is why the ASMR-only mouth shapes in
-         intensityProfiles.weak (facial_mouth_010 / _015) practically never
-         appeared. Never mid-speech: that would cut a lip-synced line. */
       if (!Avatar._talking) Avatar._applyFace(false);
       var keep = nextType === prevType;
       if (fromName === name) {
@@ -2216,10 +1834,6 @@
       if (tps && !tps[band]) band = tps.low ? 'low' : 'high';
       else if (!tps) band = null;
       var bindings = (band && tps[band] && tps[band].ambientBindings) || [];
-      /* Source cycles ambientBindings by (emotion, band) with per-binding
-         repeatMin/repeatMax: the same head/eye pattern plays N times before
-         a new driver is rolled. Keep the pattern within a band; when the
-         band changes (talk start/stop) start a new pattern cleanly. */
       var spec = null, i, hit = null;
       var cyc = Avatar._lookCyc;
       if (cyc && cyc.band === band && cyc.left > 0 && cyc.spec) {
@@ -2252,9 +1866,6 @@
         return a + Math.random() * (b - a);
       }
       var isEyeDrv = spec.driver === 'eye';
-      /* 78 of 98 drivers are lookAtUser — their yaw/pitch windows straddle
-         0 (front, i.e. at the player), so the random pick already reads as
-         "looking at you". Keep the window as authored. */
       look.ty = rnd(spec.yawMin, spec.yawMax);
       look.tp = rnd(spec.pitchMin, spec.pitchMax);
       look.tr = rnd(spec.rollMin, spec.rollMax);
@@ -2289,9 +1900,6 @@
       look.yaw = (look.fromY || 0) + ((look.ty || 0) - (look.fromY || 0)) * u;
       look.pitch = (look.fromP || 0) + ((look.tp || 0) - (look.fromP || 0)) * u;
       look.roll = (look.fromR || 0) + ((look.tr || 0) - (look.fromR || 0)) * u;
-      /* DriverDefs rollFollowSpeed: head roll trails the yaw/pitch step with
-         its own exponential follow — the lag is what reads as "alive" neck
-         motion instead of a rigid whole-head swipe. */
       var cyc = Avatar._lookCyc;
       var rfs = (cyc && cyc.spec && Number(cyc.spec.rollFollowSpeed)) || 5;
       if (!(rfs > 0)) rfs = 5;
@@ -2302,14 +1910,6 @@
       while (Avatar._lookHist.length > 1 && Avatar._lookHist[0].t < Avatar._lookClock - 2.8) {
         Avatar._lookHist.shift();
       }
-      /* wantMul: suppress the look system while a one-shot owns the aim
-         bones. Two exits used to be visibly separate beats: the 0.15→1.0
-         recovery started only after the reaction had fully drained, and its
-         tau was shorter than everything else's — so after the 0.3 s exit
-         fade had already settled, the head chased the (still hovering)
-         cursor ONE MORE TIME. Now it starts at the same 60 % point of the
-         exit fade as the limb un-mute, and recovers slower (0.3 s), so all
-         exit quantities converge as a single motion. */
       var wantMul = (Avatar._oneShotBusy() && !Avatar._pokeUnmuteReady()) ? 0.15 : 1;
       var mulTau = wantMul > Avatar._lookMul ? 0.3 : 0.18;
       Avatar._lookMul += (wantMul - Avatar._lookMul) * (1 - Math.exp(-dt / mulTau));
@@ -2319,13 +1919,8 @@
       var k = 1 - Math.exp(-dt / Math.max(0.02, Number(pc.fingerTrackDelay) || 0.1));
       if (Avatar._pointer.on) {
         if (!Avatar._ptrInit) {
-          /* Seed the smoothed point at the FACE, not at the raw cursor:
-             the offset starts at 0 and eases toward the pointer, so a
-             cursor that appears mid-canvas glides in instead of teleporting
-             the eye/head IK targets (the "occasional twitch"). */
           var sk = Avatar.avatar && Avatar.avatar.skeleton;
-          var fb = sk && (sk.findBone(pc.fingerTrackCenterBone || 'rig_face') ||
-                         sk.findBone('head'));
+          var fb = sk && (sk.findBone(pc.fingerTrackCenterBone || 'rig_face') || sk.findBone('head'));
           if (fb) {
             Avatar._ptrSm.x = fb.worldX;
             Avatar._ptrSm.y = fb.worldY;
@@ -2363,7 +1958,6 @@
       return sk.findBone(name || ('control_' + (kind === 'aimSlots' ? 'aim_' : 'roll_') + part));
     },
 
-    /* smooth gate for fingerTrack thresholds (see _applyLook) */
     _ptrRamp: function (n, thr, sc) {
       var lo = thr * 0.6, hi = thr * 1.4;
       if (!(hi > lo) || n <= lo) return 0;
@@ -2383,27 +1977,14 @@
       var fEyeX = 0, fEyeY = 0, fHeadX = 0, fHeadY = 0, fBodyX = 0, fBodyY = 0;
       var maxR = Number(pc.fingerTrackMaxRange) || 514;
       var on = Avatar._pointer.on;
-      /* gazeReturnToFront (source config): pointer influence must ENTER and
-         EXIT over 0.4–0.8 s, scaled by distance. Before this, fEye/fHead/
-         fBody snapped to the full pointer offset the frame the cursor hit
-         #avatar-hit and to 0 the frame it left — a one-frame teleport of the
-         eye/head IK targets. That is the reported "偶发性抽动". */
       var gr = pc.gazeReturnToFront || {};
       var gcfg = on ? (gr.entry || {}) : (gr.exit || {});
       var gmn = Number(gcfg.minSeconds); if (!(gmn > 0)) gmn = 0.4;
       var gmx = Number(gcfg.maxSeconds); if (!(gmx >= gmn)) gmx = Math.max(gmn, 0.8);
       var gsp = Number(gcfg.secondsPerDistance); if (!(gsp > 0)) gsp = 0.8;
       if (on) {
-        var face = L.skeleton.findBone(pc.fingerTrackCenterBone || 'rig_face') ||
-                   L.skeleton.findBone('head');
+        var face = L.skeleton.findBone(pc.fingerTrackCenterBone || 'rig_face') || L.skeleton.findBone('head');
         if (face) {
-          /* While a one-shot owns the head, the face bone is dragged far from
-             idle by the reaction clip. Measuring the cursor against that
-             moving bone made the pointer offset swing with the gesture and
-             snap back at the end — a second bounce riding on top of the exit
-             fade (the "点击反应↔注视打架" suspect). Freeze the reference at
-             the last pre-gesture position; after the drain, live tracking
-             resumes within a few units of the same point. */
           var fx, fy;
           if (Avatar._oneShotBusy()) {
             if (!Avatar._faceRef) Avatar._faceRef = { x: face.worldX, y: face.worldY };
@@ -2419,19 +2000,10 @@
           if (n > 1) { dx /= n; dy /= n; n = 1; }
           Avatar._ptrN = n;
           fEyeX = dx; fEyeY = dy;
-          /* fingerTrackHead/BodyThreshold are gates in the data, but a hard
-             0→scale switch snapped the head target ~40 units and the body
-             target ~85 units in one frame whenever the cursor crossed the
-             ring — the reported "特定位置卡模型/重影". Ramp each contribution
-             smoothly across a ±40% window around its threshold instead. */
-          fHeadX = dx * Avatar._ptrRamp(n, Number(pc.fingerTrackHeadThreshold) || 0.11,
-                                        Number(pc.fingerTrackHeadScale) || 0.7);
-          fHeadY = dy * Avatar._ptrRamp(n, Number(pc.fingerTrackHeadThreshold) || 0.11,
-                                        Number(pc.fingerTrackHeadScale) || 0.7);
-          fBodyX = dx * Avatar._ptrRamp(n, Number(pc.fingerTrackBodyThreshold) || 0.3,
-                                        Number(pc.fingerTrackBodyScale) || 0.55);
-          fBodyY = dy * Avatar._ptrRamp(n, Number(pc.fingerTrackBodyThreshold) || 0.3,
-                                        Number(pc.fingerTrackBodyScale) || 0.55);
+          fHeadX = dx * Avatar._ptrRamp(n, Number(pc.fingerTrackHeadThreshold) || 0.11, Number(pc.fingerTrackHeadScale) || 0.7);
+          fHeadY = dy * Avatar._ptrRamp(n, Number(pc.fingerTrackHeadThreshold) || 0.11, Number(pc.fingerTrackHeadScale) || 0.7);
+          fBodyX = dx * Avatar._ptrRamp(n, Number(pc.fingerTrackBodyThreshold) || 0.3, Number(pc.fingerTrackBodyScale) || 0.55);
+          fBodyY = dy * Avatar._ptrRamp(n, Number(pc.fingerTrackBodyThreshold) || 0.3, Number(pc.fingerTrackBodyScale) || 0.55);
         }
       }
       var wantPtr = on ? 1 : 0;
@@ -2441,9 +2013,6 @@
       if (!on && Avatar._ptrW < 0.004) Avatar._ptrW = 0;
       fEyeX *= Avatar._ptrW; fEyeY *= Avatar._ptrW;
       fHeadX *= Avatar._ptrW; fHeadY *= Avatar._ptrW;
-      /* A one-shot (track 1) owns the aim bones during the gesture — the
-         finger term must shrink with the ambient look (_lookMul 0.15) or the
-         head fights between the gesture pose and the cursor. */
       fEyeX *= mul; fEyeY *= mul;
       fHeadX *= mul; fHeadY *= mul;
       fBodyX *= mul; fBodyY *= mul;
@@ -2471,30 +2040,15 @@
       bodyL = scaleLook(bodyL, mul);
       neckL = scaleLook(neckL, mul);
 
-      /* driver:'eye' patterns move the eye targets fully and barely tilt
-         the head; driver:'head' patterns lead with head + body followers.
-         The authored aim-bone deltas are tiny (±7–20 units), so keep the
-         rad→world scale modest. */
       var eyeDrv = !!look.eyeDrv;
       var eyeK = eyeDrv ? 0.18 : 0.35;
       var headK = eyeDrv ? 0.18 : 1;
 
-      /* Targets first, then ONE eased application per bone.
-         Both reported snaps came from transients in the *inputs*:
-         - the eye↔head driver switch changes the gains instantly;
-         - a re-picked driver changes followers[].delay, so _lookAt()
-           jumps to a different history sample (up to ~0.35 s of motion
-           ≈ 48 world units in one frame).
-         Easing the applied contribution (τ=0.12 s) absorbs every source
-         instead of patching them one by one — this is the fix for the
-         "某些角度还是会闪/重影" report. */
       var tgt = {};
       tgt.eye = [yaw * eyeK * unit + fEyeX, -pitch * eyeK * unit * 0.85 + fEyeY];
       tgt.head = [headL.y * headK * unit + fHeadX, -headL.p * headK * unit * 0.85 + fHeadY];
-      tgt.body = [bodyL.y * bodyScale * headK * unit + fBodyX,
-                  -bodyL.p * bodyScale * 0.8 * headK * unit * 0.85 + fBodyY];
-      tgt.center = [yaw * 0.4 * headK * unit + fHeadX * 0.5,
-                    -pitch * 0.4 * headK * unit * 0.85 + fHeadY * 0.5];
+      tgt.body = [bodyL.y * bodyScale * headK * unit + fBodyX, -bodyL.p * bodyScale * 0.8 * headK * unit * 0.85 + fBodyY];
+      tgt.center = [yaw * 0.4 * headK * unit + fHeadX * 0.5, -pitch * 0.4 * headK * unit * 0.85 + fHeadY * 0.5];
       tgt.r_head = [headL.r * headK * 16, 0];
       tgt.r_neck = [neckL.r * neckScale * headK * 16 * neckScale, 0];
       tgt.r_body = [bodyL.r * bodyScale * headK * 16 * bodyScale * 0.6, 0];
@@ -2504,17 +2058,12 @@
       var aK = 1 - Math.exp(-dtL / 0.12);
       Object.keys(tgt).forEach(function (k) {
         var t = tgt[k];
-        if (!isFinite(t[0]) || !isFinite(t[1])) return;      /* never poison the smoother */
+        if (!isFinite(t[0]) || !isFinite(t[1])) return;
         var sm = Avatar._aimSm[k];
         if (!sm || !isFinite(sm[0]) || !isFinite(sm[1])) {
           sm = Avatar._aimSm[k] = [t[0], t[1]];
         } else {
           var dx = (t[0] - sm[0]) * aK, dy = (t[1] - sm[1]) * aK;
-          /* Slew-rate cap. Plain exponential smoothing bounds a step only to
-             aK×gap — a driver re-pick across the full yaw window still lands
-             as a >12u snap, the exact transient class §3.8 exists to kill
-             (the sweep gate flaked ~1-in-6 on it). 600 u/s ⇒ ~10 u/frame at
-             60 fps; normal ambient motion never comes close to the cap. */
           var cap = 600 * dtL, mag = Math.hypot(dx, dy);
           if (mag > cap) { dx *= cap / mag; dy *= cap / mag; }
           sm[0] += dx;
@@ -2530,9 +2079,6 @@
       });
     },
 
-    /* Live mic/playback level for lipsync. The analyser belongs to whatever
-       owns playback, so the host injects it (setVoiceSource) rather than the
-       renderer reaching into the UI each frame. */
     _voiceDb: function () {
       var src = Avatar._voiceSource ? Avatar._voiceSource() : null;
       var an = src && src.analyser;
@@ -2554,9 +2100,6 @@
       var target = 0, db, amp, i, env;
       if (Avatar._talking) {
         if (Avatar._env) {
-          /* Pre-recorded alarm/prologue clips ship a sibling .env.json —
-             that envelope is the authored mouth curve, so it wins over
-             live RMS (which only exists for TTS blob playback). */
           Avatar._env.t += dt;
           env = Avatar._env;
           i = env.window > 0 ? Math.floor(env.t / env.window) : 0;
@@ -2598,12 +2141,6 @@
 
     setEmotion: function (emotion, attitude, immediate) {
       var L = Avatar.avatar;
-      /* Validated against the vocabulary core owns (util.js). The literal that
-         used to be here was a second copy of api.js's list, so an emotion added
-         to the protocol side was silently rejected by the face — the two layers
-         cannot import each other, which is why the list is in core. If core is
-         absent, accept any non-empty name (the old behaviour for an unknown one
-         is the base face anyway), but never treat omit as a value. */
       var names = (global.Util && global.Util.EMOTIONS) || null;
       var atts = (global.Util && global.Util.ATTITUDES) || null;
       if (emotion && (!names || names.indexOf(emotion) >= 0)) Avatar._emotion = emotion;
@@ -2618,12 +2155,9 @@
       if (!(sat > 0)) sat = 0.1;
       st.data.defaultMix = (Number(prof && prof.mixDurationMin) || 1) * sat;
       Avatar._lipSync = (prof && prof.lipSyncScrubClip) || FALLBACK_LIP;
-      Avatar._idleGap = ((inten && inten.poseRerollIntervalMin) || 5) +
-                        Math.random() * (((inten && inten.poseRerollIntervalMax) || 8) -
-                                         ((inten && inten.poseRerollIntervalMin) || 5));
+      Avatar._idleGap = ((inten && inten.poseRerollIntervalMin) || 5) + Math.random() * (((inten && inten.poseRerollIntervalMax) || 8) - ((inten && inten.poseRerollIntervalMin) || 5));
       Avatar._sittingId = Avatar._sittingFromPosture();
 
-      /* fixedBasePoseMode: emotion / one-shot must not swap the looping A_* idle. */
       var cur0 = st.getCurrent(0);
       var hasIdle = cur0 && cur0.animation && cur0.animation.name;
       if (!hasIdle) {
@@ -2661,7 +2195,7 @@
       Avatar._applyFace(!!immediate);
       Avatar._exprBand = Avatar._intensityBand();
       Avatar._syncFx(!!immediate);
-      Avatar._lookCyc = null;   /* new emotion → fresh gaze pattern */
+      Avatar._lookCyc = null;
       Avatar._pickLook();
       Avatar._blinkTimer = Avatar._nextBlinkGap();
     },
@@ -2681,8 +2215,6 @@
       Avatar._mouthIdle = pickAnim(data, expr && expr.mouth) || pickAnim(data, inten && inten.mouthBase);
       if (Avatar._eyeOpen) st.setAnimation(2, Avatar._eyeOpen, true).mixDuration = mixEye;
       if (brow) st.setAnimation(3, brow, true).mixDuration = mixBrow;
-      /* A live tap parks track 4 (see poke); putting the idle mouth back
-         mid-gesture would re-introduce the unkeyed-bone shear. */
       if (!Avatar._talking && Avatar._mouthIdle && !Avatar._pokeMouthHold) {
         st.setAnimation(4, Avatar._mouthIdle, true).mixDuration = immediate ? 0 : 0.25;
       }
@@ -2704,10 +2236,6 @@
       }
       var tr0 = st.getCurrent(0);
       if (tr0) tr0.timeScale = Avatar._animTimeScale();
-      /* expressionSets are content-identical between normal↔strong for 7 of
-         9 emotions (only shy/tease differ): re-rolling the face on every talk
-         toggle was churn, not source behaviour. Only re-apply when the two
-         bands' sets actually differ; emotion changes still re-roll normally. */
       var bandNow = Avatar._intensityBand();
       var bandPrev = Avatar._exprBand || bandNow;
       Avatar._exprBand = bandNow;
@@ -2733,10 +2261,6 @@
       return sig(a) !== sig(b);
     },
 
-    /* gazeEntries ({direction:'lookAtUser', holdSeconds:3.0, weight:1}) exist
-       in every emotion × band — authored: when she starts talking she looks
-       at you for a beat before the ambient pattern resumes. The transition
-       time comes from gazeReturnToFront.entry. */
     _lookAtUserNow: function () {
       var bag = Avatar._tensionBag();
       var ge = ((bag && bag.gaze) || {}).gazeEntries || [];
@@ -2760,10 +2284,9 @@
       look.hold = Number(at.holdSeconds) > 0 ? Number(at.holdSeconds) : 3;
       look.t = 0;
       look.eyeDrv = false;
-      Avatar._lookCyc = null;   /* ambient pattern resumes after the hold */
+      Avatar._lookCyc = null;
     },
 
-    /* alarm .env.json: durationMs / windowMs / envelope[] drive mouth timeScale. */
     setTalkingEnvelope: function (env) {
       Avatar.setTalking(true);
       if (!env || !env.envelope || !env.envelope.length) return;
@@ -2783,28 +2306,17 @@
 
     isHidden: function () { return !!Avatar._hideChara; },
 
-    /* The face currently on screen (the caller that set it can also read it
-       back without touching _emotion). */
     currentEmotion: function () { return Avatar._emotion || ''; },
     currentAttitude: function () { return Avatar._attitude || ''; },
-    /* Both screen fields at once, for the protocol layer's tag line — it gets
-       this as an injected reader (Api.setScreenState) rather than reaching in. */
     screenState: function () {
       return { emotion: Avatar._emotion || '', attitude: Avatar._attitude || '' };
     },
 
-    /* The bottom-panel fraction drives the camera window, so the renderer owns
-       the value; the UI only states how tall its panel is. Read/write through
-       these instead of assigning Avatar._panelFrac from outside. */
     panelFraction: function () { return Avatar._panelFrac || 0; },
     setPanelFraction: function (frac) { Avatar._panelFrac = Number(frac) || 0; },
 
-    /* CSS zoom between layout px and clientX (desktop #phone scaling). Public
-       alias: the pointer/click/dpr conversions all go through this one. */
-    cssZoom: function (el) { return Avatar._cssZoom(el); },
-
-    /* ASMR ⇄ other modes flips the intensity band (weak). Re-apply the
-       face/FFX/speed without interrupting the current pose. */
+    cssZoom: function (el) { return Avatar._cssZoom(el); }, 
+    
     onModeChange: function () {
       if (!Avatar.avatar || !Avatar.avatar.ready || !Avatar.avatar.state) return;
       var tr0 = Avatar.avatar.state.getCurrent(0);
@@ -2818,12 +2330,6 @@
       }
     },
 
-    /* Exit fade for tap reactions. The source's tapReactionExitMix (0.3 s)
-       is the FLOOR, not the value: the shipped motion_touch_A_* clips all
-       END mid-gesture — measured end-vs-idle displacement is 170–490 world
-       units on the arm chain, so a fixed 0.3 s return whips the arm down at
-       up to ~1600 u/s (the reported 「点击后的动作恢复不自然」). Scale the
-       fade with the actual displacement; per-clip result is cached. */
     _pokeExitMix: function (anim) {
       var pcfg = (Avatar.gesture && Avatar.gesture.projectConfig) || {};
       var base = Number(pcfg.tapReactionExitMix);
@@ -2840,8 +2346,7 @@
         var st = new spine.AnimationState(asd);
         var idle = Avatar._idleName();
         if (!idle || !data.findAnimation(idle)) {
-          idle = (data.findAnimation('motion_A_001_idle') && 'motion_A_001_idle') ||
-                 (data.animations[0] && data.animations[0].name);
+          idle = (data.findAnimation('motion_A_001_idle') && 'motion_A_001_idle') || (data.animations[0] && data.animations[0].name);
         }
         st.setAnimation(0, idle, false);
         st.update(0); st.apply(sk); sk.updateWorldTransform(spine.Physics.pose);
@@ -2864,10 +2369,7 @@
     poke: function (partName) {
       var L = Avatar.avatar;
       if (!L || !L.ready || !partName) return null;
-      var reactions = (Avatar.gesture && Avatar.gesture.emotionalGesture &&
-                       Avatar.gesture.emotionalGesture.TapReactions) || [];
-      /* Only reactions mapped to the tapped part. The old "no match → any
-         reaction" fallback made misses and unmapped parts still flinch. */
+      var reactions = (Avatar.gesture && Avatar.gesture.emotionalGesture && Avatar.gesture.emotionalGesture.TapReactions) || [];
       var list = reactions.filter(function (r) { return r.PartName === partName; });
       if (!list.length) return null;
       var pick = list[Math.floor(Math.random() * list.length)];
@@ -2875,22 +2377,9 @@
       if (!anim) return null;
       var pc = Avatar._pc();
       var enter = Number(pc.tapReactionEnterMix);
-      if (!(enter >= 0)) enter = 0.2;
-      /* The source's enter mix is 0: a poke from rest cuts straight in. But
-         when a NEW reaction lands on top of one still playing or still
-         fading out, a hard cut drops the limb to the new clip's first frame
-         mid-gesture — chained taps felt worse than the old flat 0.2. Cross-
-         fade only in that overlap case. */
+      if (!(enter >= 0)) enter = 0.2; 
       if (enter === 0 && Avatar._trackBusy(6)) enter = 0.15;
-      Avatar._muteAdditives(true);
-      /* Tap clips key mouth_01 (open) plus a SUBSET of the mouth chain
-         (A_001: mouth2/3/4/5 translate only). MixBlend.replace leaves
-         unkeyed bones at the idle-mouth pose. Sad/crying idles (004/005/006)
-         park extra translate/scale/rotate on face_mouth, mouth6, mouth7_ex
-         and scale on mouth2/3 — those leftovers shear mouth_01 as soon as
-         look-at turns the head off the clip's authored side. Other
-         expression mouths sit near setup, so the mix is invisible.
-         Empty track 4 for the gesture so tap applies on bind pose. */
+      Avatar._muteAdditives(true); 
       Avatar._clearMouthForPoke(enter);
       var tr = L.state.setAnimation(6, anim, false);
       tr.mixDuration = enter;
@@ -2917,12 +2406,6 @@
       L.state.setAnimation(4, Avatar._mouthIdle, true).mixDuration = 0.2;
     },
 
-    /* Un-mute timing for the tap exit. The limb/occupancy layers used to come
-       back on the first frame after the exit fade fully drained: the body
-       landed on the bare idle, then shifted again as the layers blended in —
-       a two-phase "bounce" the user felt as 退出点击突兀. Letting the layers
-       re-blend from ~60 % into the fade turns the two moves into one settle.
-       (tapReactionExitMix stays the source's authority; we only overlap.) */
     _pokeUnmuteReady: function () {
       var L = Avatar.avatar;
       var st = L && L.state;
@@ -2935,7 +2418,7 @@
       return (Number(tr.mixTime) || 0) / dur >= 0.6;
     },
 
-    /* --------------------------------------------------------------- loop */
+    /* loop */
     _loop: function (now) {
       requestAnimationFrame(Avatar._loop);
       var dt = Avatar._last ? Math.min((now - Avatar._last) / 1000, 0.05) : 0;
@@ -2955,18 +2438,12 @@
         Avatar.scene.state.update(dt);
         Avatar.scene.state.apply(Avatar.scene.skeleton);
         Avatar.scene.skeleton.update(dt);
-        /* Scene parallax is transform constraints, not physics. Physics.update
-           on the 4000×5400 stage makes far layers shimmer every frame. */
         Avatar.scene.skeleton.updateWorldTransform(spine.Physics.none);
       }
       if (Avatar.avatar && Avatar.avatar.ready && Avatar.avatar.skeleton) {
-        /* Place first, then one Physics.update. A second Physics.none pass
-           discarded the simulated pose every frame and made actions jitter. */
         Avatar._placeCharacter();
         Avatar._updateLook(dt);
         Avatar.avatar.state.update(dt);
-        /* Scrub the mouth track *after* state.update so dt does not overwrite
-           openness, and *before* apply so this frame's draw sees it. */
         Avatar._applyLip(dt);
         Avatar.avatar.state.apply(Avatar.avatar.skeleton);
         Avatar.avatar.skeleton.update(dt);
@@ -2977,8 +2454,6 @@
 
       Avatar._dt = dt;
 
-      /* tension: toward 1 while talking (fast), decays high→mid→low via
-         projectConfig.tensionConfig.decayRates (per-frame @60fps units). */
       var tgtT = Avatar._talking ? 1 : 0;
       var tBand = tgtT > Avatar._tension ? 'high' : Avatar._tensionBand();
       var tRate = Avatar._tensionRate(tBand);
@@ -2990,7 +2465,6 @@
         Avatar._rerollIdle();
       }
 
-      /* 手势调度：说话/闲置两套间隔；语义动作后让位 2.3 秒。 */
       if (Avatar._semanticHold > 0) {
         Avatar._semanticHold -= dt;
         Avatar._gestureTimer = 0;
@@ -3021,9 +2495,6 @@
         var fast = Avatar._blinkMode === 'blinkFast';
         var blink = st.setAnimation(2, Avatar._eyeClosed, false);
         blink.mixDuration = fast ? 0.03 : 0.04;
-        /* 'closed' mode: hold the shut pose for durationSeconds before the
-           open clip is queued back in (delay counts from the closed clip,
-           which is a 0-length pose key). */
         var shut = Avatar._blinkMode === 'closed' ? (Avatar._closedDur || 1.5) : 0;
         var back = st.addAnimation(2, Avatar._eyeOpen, true, shut);
         back.mixDuration = fast ? 0.06 : 0.08;
@@ -3048,8 +2519,6 @@
     _nextBlinkGap: function () {
       var bag = Avatar._tensionBag();
       var entries = bag && bag.gaze && bag.gaze.eyeModeEntries;
-      /* blink / blinkFast / closed all drive eye modes in the source table
-         ('closed' = a long 1.5 s eyes-shut beat, weighted ~10%). */
       var cand = (entries || []).filter(function (e) {
         var w = Number(e.weight) || 0;
         return w > 0 && (e.mode === 'blink' || e.mode === 'blinkFast' || e.mode === 'closed');
@@ -3067,9 +2536,6 @@
       return Math.max(0.45, gap);
     },
 
-    /* Multiply maps (hair shadow) need a PMA second pass. Overlay FX
-       (blush / pale / tear) is straight-alpha pink: drawing it as Multiply
-       does dst*(rgb+1-a) and the blush itself blows out. Draw those as Normal. */
     _isSetupMul: function (n) {
       return /nose_hi|cheek_line/.test(n);
     },
@@ -3216,11 +2682,6 @@
       try {
         if (Config && Config.section('app').rim === false) rimOn = false;
       } catch (e) {}
-      /* Warm floor clear color: normal scenes' far_bg mesh covers the whole
-         window so this never shows; only 隠れ家前's 1693u parallax gap
-         (wall ends at world Y 629, floor starts at −1064) exposes it, and
-         there it reads as shadowed floor instead of a black void. Behind
-         the character always — it can never cover her. */
       gl.clearColor(0.16, 0.11, 0.07, 1);
       gl.clear(gl.COLOR_BUFFER_BIT);
       host.shader.bind();

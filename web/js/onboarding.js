@@ -53,17 +53,14 @@
     { emotion: 'happy', attitude: 'agree', ja: 'Let me show you how to navigate the screen.' }, /* ✎ */
     { emotion: 'neutral', attitude: 'agree', ja: 'The apple at the top shows my stamina.' + ' If it runs out, I’ll pass out, so be careful.' + /* ✎ */ ' Resting in a safe place will restore it.' }, /* ✎ */
     { emotion: 'laughing', attitude: 'agree', ja: 'Any items you collect will be stored here.' + /* ✎ */ ' And this is the currency used in this world.' }, /* ✎ */
-    { emotion: 'tease', attitude: 'question', ja: 'Feel free to ask me anything.' + ' When you’re not sure what to do, I think the best thing is to get a ship first, then set sail and explore the world freely!' }, /* ✎ prologue */
+    { emotion: 'tease', attitude: 'question', ja: 'Feel free to ask me anything.' + ' When you’re not sure what to do, I think the best thing is to get a ship first, then set sail and explore the world freely!' }, /* ✎ */
     { emotion: 'happy', attitude: 'agree', ja: 'If you’re ever unsure what to do, try progressing through the quests.' + /* ✎ */ ' I can’t wait to see you complete them with your own unique ideas and creativity.' }, /* ✎ */
     { emotion: 'laughing', attitude: 'agree', ja: 'For now, why don’t we have a little chat and take a break?' }  /* ✎ */
   ];
 
-  /* AgeGate — 3-layer 18+ protection
-     Layer 1: obfuscated module-level flag (_aAge)
-     Layer 2: sessionStorage seal (clears on browser close)
-     Layer 3: DOM guard (entry blocked if overlay visible) */
+  /* AgeGate */
   var _aAge = false;
-  var _rAge = '\u5e74\u9f62\u8a8d\u8a3c\u5b8c\u4e86'; /* 年齢認証完了 */
+  var _rAge = '\u5e74\u9f62\u8a8d\u8a3c\u5b8c\u4e86';
 
   var _kAgeSeen = 'ryza_age_gate_seen';
   function _ageSeen() { try { return localStorage.getItem(_kAgeSeen) === '1'; } catch (e) { return false; } }
@@ -78,10 +75,7 @@
   }
   function _ageDeny() {
     try { window.close(); } catch (e) {}
-    document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;' +
-      'height:100vh;background:#0a060a;color:rgba(255,255,255,.55);font-size:15px;font-family:sans-serif;' +
-      'text-align:center;padding:32px;">' +
-      (window.I18n ? I18n.t('age.body') : 'Access denied. Users under 18 may not enter.') + '</div>';
+    document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;' + 'height:100vh;background:#0a060a;color:rgba(255,255,255,.55);font-size:15px;font-family:sans-serif;' + 'text-align:center;padding:32px;">' + (window.I18n ? I18n.t('age.body') : 'Access denied. Users under 18 may not enter.') + '</div>';
   }
 
   var AgeGate = {
@@ -104,7 +98,6 @@
     }
   };
   global.AgeGate = AgeGate;
-  /* end AgeGate */
 
   var Onboarding = {
     step: 0,
@@ -127,8 +120,6 @@
         if (window.Sound) Sound.unlock();
         el.classList.add('hidden');
         document.body.classList.remove('boot');
-        /* 18+ age gate — one-time (localStorage). Shown a few seconds AFTER
-           the splash is gone; skipped entirely once answered before. */
         if (_ageSeen()) {
           _ageSet();
           onStart && onStart();

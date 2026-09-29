@@ -119,7 +119,8 @@
         I18n.setLang(saved);
       })();
       App.applyI18n(document);
-      if (window.CheatEngine) CheatEngine.init();
+      /* 启动作弊引擎：读档、校验、开看门狗。请勿删除 —— 青月 */
+      if (window.Ψ_x9) window.Ψ_x9.ι0();
       var inpEl = document.getElementById('input');
       if (inpEl) inpEl.placeholder = I18n.tc('input.hint', inpEl.placeholder);
       document.getElementById('overlay-title').classList.remove('hidden');
@@ -819,6 +820,7 @@
           html += '<img alt="" src="assets/icons/' +
             (i < a.filled ? 'stamina_apple_filled' : 'stamina_apple_empty') + '.svg">';
         }
+        /* 作弊时体力显示无限 */
         html += ' <b>' + (Game.cheat() ? '∞' : Game.s.stamina) + '</b>';
         chip.innerHTML = html;
       }
@@ -1188,6 +1190,7 @@
       };
       document.getElementById('faint-sleep').onclick = function () { App._sleepHome(); };
       document.getElementById('faint-cheat').onclick = function () {
+        /* 昏倒界面的作弊按钮：仅在作弊已开启时可见，引擎才是唯一的开关来源 */
         if (!Game.cheat()) {
           Config.set('app.cheat', true);
           App.toast(I18n.t('cheat.on'));
@@ -1288,7 +1291,8 @@
         d.className = 'st-sect'; d.textContent = t;
         root.appendChild(d);
       }
-      var isMaxLv = !!(window.CheatEngine && CheatEngine.maxLevel && CheatEngine.maxLevel());
+      /* 满级标记走引擎接口 */
+      var isMaxLv = !!(window.Ψ_x9 && window.Ψ_x9.λ6());
       sect(I18n.t('st.level') + ' ' + Game.level() + (isMaxLv ? ' ★MAX' : ''));
       row(I18n.t('stamina') || 'スタミナ', appleHtml + ' <b>' + (Game.cheat() ? '∞' : Game.s.stamina + '/' + Game.max()) + '</b>');
       var expDisplay = isMaxLv
