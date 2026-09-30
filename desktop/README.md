@@ -14,15 +14,15 @@ Thin desktop shell around the static `../web` framework. This package only provi
 ## Run from source
 
 ```powershell
-cd desktop
-npm install            # first time; scripts/build_desktop.ps1 sets mirror env
-npx electron .
+  cd desktop
+  npm install # first time; scripts/build_desktop.ps1 sets mirror env
+  npx electron .
 ```
 
 ## Build the installer
 
 ```powershell
-powershell -File scripts/build_desktop.ps1
+  powershell -File scripts/build_desktop.ps1
 ```
 
 Output: `output/desktop/RyzaChat-Setup-<version>.exe` (NSIS).

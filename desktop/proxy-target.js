@@ -17,14 +17,12 @@
    exercise it without booting Electron — and desktop/package.json lists it
    explicitly, which scripts/proxy_target_regression.js checks, because a
    missing entry there means a require() failure in the packaged shell only. */
+   
 'use strict';
 
 function isLoopbackHost(host) {
   const h = String(host || '').replace(/^\[|\]$/g, '').toLowerCase();
   if (h === 'localhost' || h === '::1') return true;
-  /* A strict dotted quad: a prefix test on '127.' would also wave through
-     `127.0.0.1.evil.com`, which is a public name. new URL() has already
-     canonicalised forms like `127.1` by the time this is called. */
   const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h);
   if (!m) return false;
   for (let i = 1; i <= 4; i++) if (Number(m[i]) > 255) return false;

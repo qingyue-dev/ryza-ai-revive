@@ -51,7 +51,7 @@ Structural tables (JSON, atlas, SVG) live in `web/assets/` and are versioned wit
 结构表随仓库版本管理；体积较大的栅格图、音频与骨骼二进制在完整运行或打包前本地恢复：
 
 ```powershell
-python scripts/restore_media.py path\to\RyzaChat-1.2.22.apk
+python scripts/restore_media.py path\to\RyzaChat-1.2.24.apk
 python scripts/restore_media.py path\to\win-unpacked\resources\web
 ```
 
@@ -68,11 +68,11 @@ Copy `config/providers.example.json` to `config/providers.json` for local hydrat
 ## Build
 
 ```powershell
-python scripts/serve.py                          # browser
-cd desktop; npm install; npx electron .          # desktop
-powershell -File scripts/build_desktop.ps1       # NSIS installer
+python scripts/serve.py # browser
+cd desktop; npm install; npx electron . # desktop
+powershell -File scripts/build_desktop.ps1 # NSIS installer
 powershell -File scripts/setup_android_tools.ps1 # JDK 17 + SDK (once)
-powershell -File scripts/build_apk.ps1           # APK
+powershell -File scripts/build_apk.ps1 # APK
 ```
 
 Android toolchain path: environment `RYZA_ANDROID_TOOLS`, or gitignored `config/android-tools.local.txt`.

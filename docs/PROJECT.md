@@ -9,41 +9,41 @@ Ryza Chat is a local-first conversational client with a Spine 4.2 avatar. This n
 ## 1. Layout
 
 ```
-web/                    # static client (no bundler)
+  web/ # static client (no bundler)
   index.html
   css/app.css
-  js/                   # §2
+  js/ # §2
   vendor/spine-webgl.js # Spine 4.2 runtime
-  assets/               # tables in VCS; large binaries restored locally
-desktop/                # Electron host: ryza://app + /_proxy
-android/                # WebView + AssetServer
-scripts/
-  serve.py              # static origin + CORS proxy
-  build_indexes.py      # assets → web/assets/_index/*.json
-  restore_media.py      # copy runtime binaries into web/assets/
+  assets/ # tables in VCS; large binaries restored locally
+  desktop/ # Electron host: ryza://app + /_proxy
+  android/ # WebView + AssetServer
+  scripts/
+  serve.py # static origin + CORS proxy
+  build_indexes.py # assets → web/assets/_index/*.json
+  restore_media.py # copy runtime binaries into web/assets/
   motion_regression.js
   game_logic_regression.js
   expression_coverage.js
   memory_regression.js
   boot_smoke.js
-  privacy_check.py      # packaging gate
-  stamp_version.js      # version.json → package.json, Gradle
+  privacy_check.py # packaging gate
+  stamp_version.js # version.json → package.json, Gradle
   build_desktop.ps1
   build_apk.ps1
   setup_android_tools.ps1
-config/version.json
-config/providers.example.json
-docs/                   # this file
+  config/version.json
+  config/providers.example.json
+  docs/ # this file
 ```
 
 A single web kernel is loaded by three hosts (browser, Electron, Android). Development:
 
 ```powershell
-python scripts/serve.py          # http://127.0.0.1:8765/
-cd desktop && npx electron .
-powershell -File scripts/build_desktop.ps1
-powershell -File scripts/setup_android_tools.ps1
-powershell -File scripts/build_apk.ps1
+  python scripts/serve.py # http://127.0.0.1:8765/
+  cd desktop && npx electron .
+  powershell -File scripts/build_desktop.ps1
+  powershell -File scripts/setup_android_tools.ps1
+  powershell -File scripts/build_apk.ps1
 ```
 
 ---
@@ -142,17 +142,17 @@ desktop implementation and drives the real dev server.
 ## 4. Tests
 
 ```powershell
-node scripts/boot_smoke.js
-node scripts/back_regression.js
-node scripts/game_logic_regression.js
-node scripts/memory_regression.js
-node scripts/motion_regression.js
-node scripts/expression_coverage.js
-node scripts/proxy_target_regression.js
-node scripts/save_slot_regression.js
-node scripts/transport_error_regression.js
-node scripts/layering_check.js --strict
-python scripts/privacy_check.py web
+  node scripts/boot_smoke.js
+  node scripts/back_regression.js
+  node scripts/game_logic_regression.js
+  node scripts/memory_regression.js
+  node scripts/motion_regression.js
+  node scripts/expression_coverage.js
+  node scripts/proxy_target_regression.js
+  node scripts/save_slot_regression.js
+  node scripts/transport_error_regression.js
+  node scripts/layering_check.js --strict
+  python scripts/privacy_check.py web
 ```
 
 Desktop and APK scripts invoke the privacy gate before and after produce.

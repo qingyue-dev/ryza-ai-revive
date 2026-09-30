@@ -8,6 +8,7 @@
 
    Progress is %AppData%/RyzaChat/ryza-web-storage.json (injected into
    index.html before page scripts). Chromium localStorage is only a cache. */
+   
 'use strict';
 
 const { app, BrowserWindow, ipcMain, shell, protocol, net } = require('electron');
@@ -48,12 +49,6 @@ const MIME = {
   '.atlas': 'text/plain; charset=utf-8', '.skel': 'application/octet-stream',
   '.m4a': 'audio/mp4', '.mp4': 'video/mp4', '.wav': 'audio/wav',
   '.mp3': 'audio/mpeg', '.ttf': 'font/ttf', '.otf': 'font/otf',
-  /* WebAssembly + ES modules. Missing these is not cosmetic: Chromium's
-     strict module MIME check refuses to import an .mjs served as
-     application/octet-stream, and instantiateStreaming refuses a .wasm
-     served as anything but application/wasm. Measured: onnxruntime-web
-     hard-fails on this host with the two entries below missing, and runs
-     clean with them present. */
   '.mjs': 'application/javascript; charset=utf-8',
   '.wasm': 'application/wasm',
   '.woff': 'font/woff', '.woff2': 'font/woff2'
@@ -89,10 +84,6 @@ async function proxyRequest(request, targetUrl) {
   const ct = request.headers.get('content-type');
   const auth = request.headers.get('authorization');
   const apiKey = request.headers.get('api-key');
-  /* The current Fish Audio API names its engine in a `model` header (the older
-     surface named it in the body). Forwarding only Authorization dropped it,
-     and Fish then answered 402 "Insufficient API credit" for every request
-     this shell made — same contract as serve.py and the Android AssetServer. */
   const model = request.headers.get('model');
   if (ct) headers['Content-Type'] = ct;
   if (auth) headers.Authorization = auth;

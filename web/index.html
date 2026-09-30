@@ -34,6 +34,7 @@
   <button type="button" class="side-item" id="sm-full"><span data-i18n="nav.fullscreen">全画面表示</span><i class="round"><img src="assets/icons/allscreen.svg" alt=""></i></button>
   <button type="button" class="side-item" id="sm-chara"><span data-i18n="nav.toggleChara">キャラ表示切り替え</span><i class="round"><img src="assets/icons/chara_hide.svg" alt=""></i></button>
   <button type="button" class="side-item" id="sm-changelog"><span data-i18n="cl.title">Changelog</span><i class="round"><img src="data:image/svg+xml;utf8,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27%3E%3Cpath fill=%27%23000%27 d=%27M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm8 1.5V8h4.5L14 3.5zM7 12h10v1.6H7V12zm0 3.4h10V17H7v-1.6zM7 8.6h5v1.6H7V8.6z%27/%3E%3C/svg%3E" alt=""></i></button>
+  <button type="button" class="side-item" id="sm-modder"><span>改版者</span><i class="round md-side-ico">青月</i></button>
   <button type="button" class="side-item" id="sm-settings"><span data-i18n="nav.settings">設定</span><i class="round"><img src="assets/icons/charaedit.svg" alt=""></i></button>
   <button type="button" class="side-item" id="sm-map"><span data-i18n="nav.backToMap">ワールドマップにもどる</span><i class="round gold"><img src="assets/icons/world_map.svg" alt=""></i></button>
 </div>
@@ -59,6 +60,7 @@
     <li data-action="toggleChara"><img src="assets/icons/chara_hide.svg" alt="" id="ico-toggle-chara"> <span data-i18n="nav.toggleChara">显示/隐藏立绘</span></li>
     <li data-action="fullscreen"><img src="assets/icons/allscreen.svg" alt=""> <span data-i18n="nav.fullscreen">全屏</span></li>
     <li data-action="changelog"><img src="data:image/svg+xml;utf8,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27%3E%3Cpath fill=%27%23000%27 d=%27M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm8 1.5V8h4.5L14 3.5zM7 12h10v1.6H7V12zm0 3.4h10V17H7v-1.6zM7 8.6h5v1.6H7V8.6z%27/%3E%3C/svg%3E" alt=""> <span data-i18n="cl.title">Changelog</span></li>
+    <li data-action="modder" class="md-drawer-li"><span class="md-drawer-ico">青月</span> <span>改版者</span></li>
     <li data-view="settings"><img src="assets/icons/charaedit.svg" alt=""> <span data-i18n="nav.settings">设置</span></li>
   </ul>
   <div class="drawer-foot">由青月修改的版本</div>
@@ -278,6 +280,15 @@
   <div id="cl-body" class="cl-body"></div>
 </div>
 
+<div id="sheet-modder" class="sheet hidden">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head-row">
+    <h3>改版者信息</h3>
+    <button type="button" class="sheet-close-btn" id="md-close-btn" aria-label="Close">✕</button>
+  </div>
+  <div id="md-body" class="md-body"></div>
+</div>
+
 <div id="overlay-age" class="overlay hidden">
   <div class="age-gate-card">
     <div class="age-gate-icon">🔞</div>
@@ -384,6 +395,7 @@
 <script src="js/settings.js?v=cl-2"></script>
 <script src="js/app.js?v=chatlog-1"></script>
   <script src="js/changelog.js?v=cl-2"></script>
+  <script src="js/modder.js?v=md-1"></script>
   <script src="js/cheat.js?v=cheat-3"></script>
 </body>
 </html>

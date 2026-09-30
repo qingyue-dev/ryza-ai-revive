@@ -1,11 +1,12 @@
 {
   "name": "ryza-chat-desktop",
   "productName": "RyzaChat",
-  "version": "1.2.22",
+  "version": "1.2.24",
   "private": true,
   "description": "Ryza Chat offline companion framework — frameless desktop shell",
   "main": "main.js",
   "author": "zeroa234",
+  "distributor": "qingyue-dev",
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder --win"

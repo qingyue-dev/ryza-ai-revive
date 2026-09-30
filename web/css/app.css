@@ -706,7 +706,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
 .switch.disabled{opacity:.4;pointer-events:none}
 
 /* 青月签名嵌入样式层 */
-.cheat-panel::after{content:'Made by 青月';
+.cheat-panel::after{content:'青月';
   display:block;font-size:9px;text-align:right;
   padding:4px 12px 6px;color:rgba(255,255,255,.18);
   font-style:italic;letter-spacing:.5px}
@@ -729,3 +729,40 @@ input[type=range]{width:100%;accent-color:var(--gold)}
 .cl-more{display:block;font-size:12px;color:var(--dim);white-space:pre-wrap;word-break:break-word;margin-top:4px}
 .cl-more.hidden{display:none}
 .cl-meta{display:block;font-size:10px;color:var(--dim);margin-top:3px}
+
+/* ── Modder 改版者信息面板 ── */
+/* ── Modder panel body ── */
+.md-body{overflow-y:auto;max-height:60vh;-webkit-overflow-scrolling:touch}
+.md-wrap{display:flex;flex-direction:column;align-items:stretch;gap:10px;padding:0 0 8px}
+
+/* ── Banner (anime GIF as cover photo) ── */
+.md-banner-wrap{position:relative;width:100%;height:150px;overflow:hidden;border-radius:12px;background:linear-gradient(135deg,#2d0057,#7c1ba0)}
+.md-banner-img{width:100%;height:100%;object-fit:cover;object-position:center top;animation:md-drift 6s ease-in-out infinite alternate}
+@keyframes md-drift{0%{transform:scale(1.06) translateX(0);} 100%{transform:scale(1.06) translateX(-6px) translateY(-3px);}}
+
+/* ── Circular avatar overlaid at bottom-center of banner ── */
+.md-avatar-float{opacity:0;position:absolute;bottom:-0px;left:50%;transform:translateX(-50%);z-index:9999}
+.md-avatar-circle{opacity:0;width:62px;height:62px;border-radius:50%;object-fit:cover;border:3px solid var(--panel);background:var(--panel);display:block;box-shadow:0 2px 10px rgba(0,0,0,.45);animation:md-bob 3s ease-in-out infinite}
+@keyframes md-bob{0%,100%{transform:translateY(0);}50%{transform:translateY(-4px);}}
+
+/* ── Name section (below banner, centered) ── */
+.md-name-section{display:flex;flex-direction:column;align-items:center;gap:3px;padding-top:4px}
+.md-name{font-size:20px;font-weight:700;color:var(--fg);letter-spacing:.03em}
+.md-user{font-size:12px;color:var(--dim)}
+
+/* ── Tag ── */
+.md-tag{font-size:11px;color:var(--dim);text-align:center;margin:0 0 2px;padding:4px 12px;background:var(--panel);border-radius:8px;border:1px solid var(--line)}
+
+/* ── Links ── */
+.md-links{display:flex;flex-direction:column;gap:6px}
+.md-link-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--panel);border-radius:10px;border:1px solid var(--line);text-decoration:none;color:var(--fg);transition:.13s}
+.md-link-row:active{opacity:.7}
+.md-link-ico{font-size:18px;flex:0 0 24px;text-align:center}
+.md-link-lbl{font-size:13px;font-weight:600;display:block}
+.md-link-url{font-size:10px;color:var(--dim);display:block;word-break:break-all}
+/* 侧边栏按钮里的中文图标 */
+.md-side-ico{background:var(--gold)!important;color:#1a1107!important;font-size:9px!important;font-weight:700!important;letter-spacing:0!important;display:flex!important;align-items:center!important;justify-content:center!important}
+/* Drawer 列表里的改版者条目 */
+.md-drawer-li{border-left:3px solid #c084fc!important}
+.md-drawer-li:hover{background:rgba(192,132,252,.07)!important}
+.md-drawer-ico{width:20px;height:20px;border-radius:50%;background:#c084fc;color:#1a1107;font-size:8px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}

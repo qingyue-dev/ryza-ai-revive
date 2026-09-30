@@ -452,6 +452,7 @@
           if (act === 'toggleChara') { App._toggleChara(); return; }
           if (act === 'fullscreen') { open(false); App._toggleFullscreen(); return; }
           if (act === 'changelog') { open(false); App._openChangelog(); return; }
+          if (act === 'modder') { open(false); App._openModder(); return; }
           document.querySelectorAll('.drawer-list li').forEach(function (x) {
             x.classList.remove('active');
           });
@@ -543,6 +544,7 @@
       document.getElementById('sm-chara').onclick = sideClose(function () { App._toggleChara(); });
       document.getElementById('sm-settings').onclick = sideClose(function () { App.showView('settings'); });
       document.getElementById('sm-changelog').onclick = sideClose(function () { App._openChangelog(); });
+      document.getElementById('sm-modder').onclick = sideClose(function () { App._openModder(); });
       document.getElementById('sm-map').onclick = sideClose(function () { App.showView('world'); });
       var postureBtn = document.getElementById('btn-posture');
       if (postureBtn) postureBtn.onclick = function () {
@@ -1422,6 +1424,10 @@
 
     _openChangelog: function () {
       if (window.Changelog) Changelog.open();
+    },
+
+    _openModder: function () {
+      if (window._mdAPI) window._mdAPI.open();
     },
 
     _openLangSheet: function () {
