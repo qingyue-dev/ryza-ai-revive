@@ -287,8 +287,7 @@
     _loadedPosture: function () {
       var id = Avatar._loadedSkelId || '';
       var m = /_(01|99)$/.exec(id);
-      return m ? (m[1] === '99' ? 'posture_standing' : 'posture_sitting')
-               : Avatar.postureKey();
+      return m ? (m[1] === '99' ? 'posture_standing' : 'posture_sitting') : Avatar.postureKey();
     },
 
     supportsBothPostures: function () {

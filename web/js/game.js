@@ -395,7 +395,7 @@
       var s = Game.s;
       var L = [];
       var invBrief = function (list) {
-        if (!list.length) return '（空）';
+        if (!list.length) return ' (Empty) ';
         return list.map(function (x) { return itemName(x.id) + '×' + x.count; }).join('、');
       };
       L.push('## Game State');

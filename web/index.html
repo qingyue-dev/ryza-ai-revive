@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Ryza Chat</title>
-<link rel="stylesheet" href="css/app.css?v=model-pick-1">
+<link rel="stylesheet" href="css/app.css?v=chatlog-1">
 </head>
 <body>
 <div id="phone">
@@ -22,7 +22,7 @@
   <button class="icon-btn plain" id="btn-menu" data-i18n-title="nav.settings"><img src="assets/icons/drawer.svg" alt=""></button>
   <div class="spacer"></div>
   <button type="button" id="btn-voice" class="voice-pill" data-i18n-title="mode.sheet">
-    <canvas id="lottie-voice" width="30" height="30"></canvas><img id="voice-text-ico" class="hidden" src="assets/icons/mode_text.svg" alt=""><span id="voice-pill-label">ボイス</span>
+    <canvas id="lottie-voice" width="30" height="30"></canvas><img id="voice-text-ico" class="hidden" src="assets/icons/mode_text.svg" alt=""><span id="voice-pill-label">Voice</span>
   </button>
   <button class="icon-btn" id="btn-expand" data-i18n-title="nav.settings">»</button>
 </header>
@@ -80,7 +80,7 @@
       <button type="button" class="round-btn" id="btn-zoom-out" data-i18n-title="zoom.out">－</button>
       <button type="button" class="round-btn" id="btn-zoom-reset" data-i18n-title="zoom.reset">◎</button>
     </div>
-    <button type="button" class="round-btn hidden" id="btn-posture" data-i18n-title="posture">座</button>
+    <button type="button" class="round-btn hidden" id="btn-posture" data-i18n-title="posture">Sit</button>
     <button type="button" class="round-btn" id="btn-replay" data-i18n-title="btn.replay">▶</button>
     <button type="button" class="round-btn" id="btn-voicefav" data-i18n-title="btn.fav">★</button>
     <button type="button" class="round-btn" id="btn-log-toggle" data-i18n-title="nav.history"><img src="assets/icons/arrow_up.svg" alt=""></button>
@@ -96,9 +96,8 @@
       </div>
     </div>
     <div id="log-body">
-      <div id="bubble"><span id="bubble-text"></span></div>
+      <div id="chat-list"></div>
     </div>
-    <div id="log-dots"></div>
     <div id="retry-bar" class="hidden">
       <span data-i18n="talk.retryHint">连接失败了</span>
       <button class="mini-btn" id="btn-retry" data-i18n="talk.retry">重试</button>
@@ -106,8 +105,8 @@
     <div id="input-bar">
       <button type="button" class="round-btn speed-btn" id="btn-speed" data-i18n-title="speed">×1</button>
       <div class="input-pill">
-        <input id="input" type="text" placeholder="和莱莎说点什么…" autocomplete="off">
-        <button type="button" id="btn-mic" class="mic-btn hidden" data-i18n-title="mic.start" title="语音输入"></button>
+        <input id="input" type="text" placeholder="Say something to Ryza…" autocomplete="off">
+        <button type="button" id="btn-mic" class="mic-btn hidden" data-i18n-title="mic.start" title="Voice input"></button>
         <button type="button" id="btn-newtalk" data-i18n-title="nav.newTalk"><img src="assets/icons/asterisk.svg" alt=""></button>
       </div>
       <button type="button" id="btn-send" class="round-btn send-btn" data-i18n-title="btn.send"><img src="assets/icons/send.svg" alt="send"></button>
@@ -123,10 +122,10 @@
 <section id="view-world" class="view">
   <div class="view-head"><h2 data-i18n="world.title">世界地图</h2>
     <div class="head-actions">
-      <button class="mini-btn" id="btn-world-mode">🗺 <span>地图</span></button>
+      <button class="mini-btn" id="btn-world-mode">🗺 <span>Map</span></button>
       <button class="mini-btn" id="btn-world-people">👥 <span data-i18n="world.people">People here</span></button>
       <select id="world-area"></select>
-      <button class="mini-btn" id="btn-tod">🌤 <span id="btn-tod-label">时段</span></button>
+      <button class="mini-btn" id="btn-tod">🌤 <span id="btn-tod-label">Time</span></button>
     </div>
   </div>
   <div id="world-body">
@@ -305,8 +304,8 @@
     <p id="onb-sub" class="onb-sub"></p>
     <div id="onb-body"></div>
     <div class="btn-row">
-      <button type="button" class="btn" id="onb-skip">跳过</button>
-      <button type="button" class="btn primary" id="onb-next">下一步</button>
+      <button type="button" class="btn" id="onb-skip">Skip</button>
+      <button type="button" class="btn primary" id="onb-next">Next</button>
     </div>
   </div>
 </div>
@@ -383,7 +382,7 @@
 <script src="js/back.js?v=back-1"></script>
 <script src="js/kbd.js?v=1"></script>
 <script src="js/settings.js?v=cl-2"></script>
-<script src="js/app.js?v=cl-3"></script>
+<script src="js/app.js?v=chatlog-1"></script>
   <script src="js/changelog.js?v=cl-2"></script>
   <script src="js/cheat.js?v=cheat-3"></script>
 </body>

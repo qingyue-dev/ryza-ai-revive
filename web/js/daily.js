@@ -8,9 +8,7 @@
   var RESET_HOUR = 7;
 
   var DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
-
-  /* Random reward pool — frozen so it cannot be edited at runtime.
-     Every claim (daily or paid catch-up) rolls one entry from here. */
+  
   var POOL = Object.freeze([
     { kind: 'stamina', amount: 'full', text: 'Stamina Refill' },
     { kind: 'stamina', amount: 20, text: 'Stamina +20' },
@@ -64,7 +62,6 @@
 
   function getRandomReward() { return POOL[rollIndex()]; }
 
-  /* Unbiased random index; crypto first, Math.random as fallback. */
   function rollIndex() {
     try {
       var c = window.crypto || window.msCrypto;
@@ -83,8 +80,7 @@
     if (!r) return '?';
     switch (r.kind) {
       case 'stamina':
-        return r.amount === 'full' ? L('dl.r.full', 'Stamina Refill')
-                                   : L('dl.r.st', 'Stamina') + ' +' + r.amount;
+        return r.amount === 'full' ? L('dl.r.full', 'Stamina Refill') : L('dl.r.st', 'Stamina') + ' +' + r.amount;
       case 'money': return r.amount + 'G';
       case 'exp':   return L('dl.r.exp', 'EXP') + ' +' + r.amount;
       case 'item':  return nm(r.id) + '\u00d7' + (r.n || 1);
@@ -96,7 +92,6 @@
     return r.text || '?';
   }
 
-  /* Local tamper seal for the saved state (edit claimedWeek/log by hand -> mismatch). */
   function _seal(txt) {
     var k = '\u9752\u6708', h = 0x811c9dc5, i;
     txt = String(txt) + '|' + k;
@@ -133,7 +128,6 @@
   }
 
   /* ── persistent state ── */
-
   var _celebrate = null;
   var _present   = null;
 
@@ -158,7 +152,6 @@
   }
 
   /* ── Daily object ── */
-
   var Daily = {
     dayIndex: dayIndex,
     setCelebrate: function (fn) { _celebrate = typeof fn === 'function' ? fn : null; },
@@ -173,7 +166,7 @@
         sealed = localStorage.getItem(KEY + '.m') === '1';
       } catch (e) {}
       try { raw = JSON.parse(txt || 'null'); } catch (e) {}
-      /* Sealed before but seal missing/wrong => edited by hand => lock this week. */
+
       var tampered = !!(txt && sealed && tag !== _seal(txt));
       Daily.s = Object.assign(
         { weekStart: '', claimedWeek: [], streak: 0, lastClaim: '', log: {} },
@@ -341,6 +334,7 @@
 
         /* Catchup button for past unclaimed days */
         if (isPast) {
+        
           /* 作弊开启时补签免费 */
           var isCheat = (typeof Game !== 'undefined') && Game.cheat();
           var buyBtn = document.createElement('button');

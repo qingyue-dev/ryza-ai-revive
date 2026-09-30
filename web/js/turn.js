@@ -5,15 +5,15 @@
 
   var IDLE = 'idle', THINKING = 'thinking', SPEAKING = 'speaking';
 
-  var _synth = null; /* Promise<url|null> */
-  var _player = null; /* Promise */
-  var _cancelTurn = null; /* epoch */
+  var _synth = null;
+  var _player = null;
+  var _cancelTurn = null;
   
   var _subs = [];
 
   var _state = IDLE;
   var _epoch = null;
-  var _active = null; /* { id, priority, ownerId, controller, signal, meta } */
+  var _active = null;
   var _waiting = [];
   var _seq = 0;
 
@@ -86,7 +86,7 @@
   function revoke(url) {
     try {
       if (url && global.URL && URL.revokeObjectURL) URL.revokeObjectURL(url);
-    } catch (e) { /* nothing to revoke */ }
+    } catch (e) { }
   }
 
   function run(intent) {
@@ -147,11 +147,7 @@
     waiting: function () { return _waiting.length; },
     activeIntentId: function () { return _active ? _active.id : null; },
 
-    /* ------------------------------------------------------------- turns
-       Start of a user turn: whatever she was saying (and everything queued
-       behind it) is superseded, and the caller gets the epoch to hand to
-       Api.chat. Returns null when no canceller was injected — callers then
-       just let Api allocate its own epoch. */
+    /* ------------------------------------------------------------- turns */
     beginTurn: function (reason) {
       Turn.stopAll(reason || 'new-turn');
       _epoch = bumpEpoch(reason || 'new-turn');
@@ -164,8 +160,7 @@
       if (_state === THINKING) setState(IDLE);
     },
 
-    /* ------------------------------------------------------------ speech
-       Returns the intent handle immediately; playback is asynchronous. */
+    /* ------------------------------------------------------------ speech */
     speak: function (text, opts) {
       opts = opts || {};
       if (text == null || text === '') return null;
@@ -178,8 +173,7 @@
         meta: { mode: opts.mode, emotion: opts.emotion, fx: opts.fx }
       };
       if (_active) {
-        var cutIn = intent.behavior === 'replace' ||
-                    (intent.behavior === 'interrupt' && intent.priority >= _active.priority);
+        var cutIn = intent.behavior === 'replace' || (intent.behavior === 'interrupt' && intent.priority >= _active.priority);
         if (!cutIn) {
           _waiting.push(intent);
           emit({ type: 'queue', intent: intent });
@@ -201,13 +195,7 @@
       return false;
     },
 
-    /* Cut the current utterance; queued ones still play (airi's `interrupt` vs
-       `stopAll` distinction). It is also the architecture's single interrupt
-       exit, so it invalidates a reply still on the wire: bumping the epoch
-       aborts the in-flight XHR, which is what makes "she stops because you
-       started talking" true even while she is only *thinking*. Without this,
-       a caller that interrupts during THINKING (the stop button, vad.js's
-       onset) left the request running and the reply landed afterwards. */
+    /* Cut the current utterance; queued ones still play (airi's `interrupt` vs `stopAll` distinction). */
     interrupt: function (reason) {
       var why = reason || 'interrupt';
       bumpEpoch(why);

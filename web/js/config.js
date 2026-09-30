@@ -8,7 +8,7 @@
   var DEFAULTS = {
     llm: {
       baseUrl: '',
-      model: 'gpt-4o-mini',
+      model: 'grok-4.7-xhigh',
       apiKey: '',
       temperature: 0.9,
       maxTokens: 400,

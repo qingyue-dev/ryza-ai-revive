@@ -159,7 +159,6 @@
 
   function parseConsolidation(text) {
     var s = String(text || '').trim();
-    /* 模型可能套 ```json ```，剥掉 */
     s = s.replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
     var i = s.indexOf('{'), j = s.lastIndexOf('}');
     if (i < 0 || j <= i) return null;

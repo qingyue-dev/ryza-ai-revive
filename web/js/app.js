@@ -194,7 +194,7 @@
         });
       }).catch(function (e) {
         App._bootError = e;
-        App.toast('素材索引加载失败：' + e.message, true);
+        App.toast('Failed to load the asset index: ' + e.message, true);
       });
     },
 
@@ -651,7 +651,7 @@
           var f = crfFile.files && crfFile.files[0];
           crfFile.value = '';
           if (!f) return;
-          App.toast('导入中…');
+          App.toast('Importing…');
           CrfStore.importZip(f).then(function (v) {
             return CrfStore.get(v.id).then(function (rec) {
               var base = Avatar.skinsIndex || [];
@@ -659,10 +659,10 @@
               Avatar.skinsIndex = base;
               Config.set('state.skin', v.id);
               App.renderSkins();
-              App.toast('已导入：' + v.id);
+              App.toast('Imported: ' + v.id);
             });
           }).catch(function (e) {
-            App.toast('导入失败：' + e.message, true);
+            App.toast('Import failed: ' + e.message, true);
           });
         };
       }
@@ -670,15 +670,15 @@
       if (crfRm) {
         crfRm.onclick = function () {
           var list = CrfStore.list();
-          if (!list.length) { App.toast('没有导入的服装'); return; }
+          if (!list.length) { App.toast('No imported outfits'); return; }
           var last = list[list.length - 1];
           CrfStore.remove(last.id).then(function () {
             Avatar.skinsIndex = (Avatar.skinsIndex || []).filter(function (x) {
               return x.id !== last.id;
             });
             App.renderSkins();
-            App.toast('已移除：' + last.id);
-          }).catch(function (e) { App.toast('移除失败：' + e.message, true); });
+            App.toast('Removed: ' + last.id);
+          }).catch(function (e) { App.toast('Failed to remove: ' + e.message, true); });
         };
       }
       var peopleBtn = document.getElementById('btn-world-people');
@@ -698,7 +698,7 @@
         });
       };
       document.getElementById('btn-settings-reset').onclick = function () {
-        if (confirm('恢复所有设置为默认值？')) {
+        if (confirm('Reset all settings to default?')) {
           Config.reset(); App.buildSettings(); App.buildCharaForm();
           App.toast(I18n.t('toast.saved'));
         }
@@ -723,7 +723,7 @@
       var langSheet = document.getElementById('sheet-lang');
       if (langSheet) langSheet.classList.add('hidden');
       if (name === 'world') {
-        Welcome.milestone('map');   /* local milestone: the official board has no map mission */
+        Welcome.milestone('map');
         Sound.setRoute('world');
         App.renderWorld();
       } else {
@@ -769,9 +769,6 @@
 
     updateHud: function () {
       var st = Config.section('state');
-      /* the same localized names the mode sheet shows (source key family
-         conversationMode.*) — this used to be a hardcoded Japanese map, so the
-         HUD chip stayed 雑談/物語 even in an English UI */
       document.getElementById('hud-mode').textContent = I18n.t('mode.' + st.mode) || st.mode;
       var place = World.find(st.stage);
       document.getElementById('hud-place').textContent =
@@ -779,17 +776,8 @@
       document.getElementById('hud-tod').textContent = World.todLabel(st.tod);
       var postureBtn = document.getElementById('btn-posture');
       if (postureBtn) {
-        /* Offered when the WORN OUTFIT has a variant for both postures — the
-           only case where switching really works (the ASMR bikinis exist
-           sitting only, and an imported ZIP is one posture). The scene no
-           longer gates this: it gated it to one stage out of 38, which is why
-           the button looked missing on a fresh install. */
         var both = window.Avatar && Avatar.postureSwitchable && Avatar.postureSwitchable();
         postureBtn.classList.toggle('hidden', !both);
-        /* ACTION semantics, not state: the chip is a button, so it names what
-           the tap will do. Labelling it with the current posture (standing →
-           「立つ」) read as "pressing this makes her stand" while she was
-           already standing — the reported 「按站立却变坐」 confusion. */
         postureBtn.textContent = both
           ? (Avatar.postureKey() === 'posture_standing'
               ? I18n.t('posture.sit') : I18n.t('posture.stand'))
@@ -799,8 +787,6 @@
       if (todBtn) todBtn.textContent = World.todLabel(st.tod);
       var dd = document.getElementById('drawer-day');
       if (dd) dd.textContent = I18n.tf('drawer.days', '同伴 {n} 天', { n: (st.day || 1) });
-      /* log panel identity line — official shows her name + the current
-         mode's description under the avatar (e.g. ASMR: 耳元で震える声で) */
       var ln = document.getElementById('log-name');
       if (ln) ln.textContent = I18n.tc('chara.ryza', 'ライザ');
       var ls = document.getElementById('log-sub');
@@ -859,7 +845,7 @@
       Config.set('state.tod', tod);
       if (prev === 'ngt' && tod === 'mor' && s.stage === HOME_STAGE) {
         Game.refill();
-        Game.remember('安全なおうちでぐっすり眠った。');
+        Game.remember('Slept soundly at a safe home.');
         App.toast(I18n.t('stamina.slept'));
       }
       App._loadSceneFor(s.stage, tod);
@@ -897,9 +883,7 @@
        command; only local flow mode teaches/accepts a clock write. */
     _clockBlock: function (st) {
       var mode = (Config.section('app').timeMode) || 'real';
-      var hour = mode === 'flow' ? Math.floor(Number(st.gameHour) || 12)
-               : mode === 'manual' ? World.todStartHour(st.tod)
-               : new Date().getHours();
+      var hour = mode === 'flow' ? Math.floor(Number(st.gameHour) || 12) : mode === 'manual' ? World.todStartHour(st.tod) : new Date().getHours();
       return '## 現在時刻\n- 同伴 ' + (st.day || 1) + '日目／' +
         World.todLabel(st.tod) + '（約' + hour + '時）';
     },
@@ -928,15 +912,16 @@
           else dest = id;
         }
       }
+      
       /* Official: time_bucket is pushed TO the model (AppServerClock), never
          written back. real/manual ignore LLM tod/time_advance/game_hour.
-         flow is the local extension where the LLM may drive one shared clock. */
+         flow is the local extension where the LLM may drive one shared clock 
+          */
       var nextTod = fromTod;
       if (World.llmDrivesClock()) {
         var tod = d.tod || d.time_bucket || scene.time_bucket;
         var gh = Number(d.game_hour != null ? d.game_hour : NaN);
-        var adv = Number(d.time_advance != null ? d.time_advance :
-                         (d.advance_hours != null ? d.advance_hours : NaN));
+        var adv = Number(d.time_advance != null ? d.time_advance : (d.advance_hours != null ? d.advance_hours : NaN));
         var cur = Number(s.gameHour); if (!(cur >= 0 && cur < 24)) cur = 12;
         var nowMs = Date.now();
         if (!isNaN(gh)) cur = ((gh % 24) + 24) % 24;
@@ -949,7 +934,7 @@
       }
       if (fromTod === 'ngt' && nextTod === 'mor' && dest === HOME_STAGE) {
         Game.refill();
-        Game.remember('安全なおうちでぐっすり眠った。');
+        Game.remember('Slept soundly at a safe home.');
         App.toast(I18n.t('stamina.slept'));
       }
       if (nextTod !== fromTod) Config.set('state.tod', nextTod);
@@ -966,11 +951,7 @@
       var sel = document.getElementById('world-area');
       World.fillAreaSelect(sel, st.stage);
       var fields = document.getElementById('world-fields');
-      /* Official area plates with calibrated pins. The grid stays as the other
-         mode: the map is additive, World.render() is untouched. */
       if (window.WorldMap && WorldMap.mode === 'map') {
-        /* 官方形态：地图铺满整屏（区域选择改用地图自带的底部条 + 弹层），
-           所以这里给世界页挂一个类，让头部与侧栏让位。 */
         var view = document.getElementById('view-world');
         if (view) view.classList.add('map-mode');
         WorldMap.render(fields, st, {
@@ -979,15 +960,12 @@
             var sel2 = document.getElementById('world-area');
             if (sel2) sel2.value = areaId;
           },
-          /* 地图模式下头部被隐藏，列表键在地图底部条里 */
           onToggleList: function () { App.toggleWorldMode(); }
         });
       } else {
         var view2 = document.getElementById('view-world');
         if (view2) view2.classList.remove('map-mode');
-        World.render(fields,
-                     document.getElementById('world-npcs'),
-                     st.stage, App.gotoStage);
+        World.render(fields, document.getElementById('world-npcs'), st.stage, App.gotoStage);
       }
     },
 
@@ -998,7 +976,7 @@
       var btn = document.getElementById('btn-world-mode');
       if (btn) {
         var label = btn.querySelector('span');
-        if (label) label.textContent = (m === 'map') ? '列表' : '地图';
+        if (label) label.textContent = (m === 'map') ? 'List' : 'Map';
       }
       App.renderWorld();
     },
@@ -1050,7 +1028,6 @@
         box.appendChild(nm); box.appendChild(nt);
         row.appendChild(img); row.appendChild(box);
         row.onclick = function () {
-          /* 会ったことのない人には "?" を残す — meeting happens by going there */
           App.toast(n.name + (n.note ? '：' + n.note : ''));
         };
         root.appendChild(row);
@@ -1069,13 +1046,11 @@
       btn.classList.remove('hidden');
       if (!btn.querySelector('img')) {
         var img = document.createElement('img');
-        img.src = 'assets/icons/voicetoggle.svg';   /* the pack's own icon */
+        img.src = 'assets/icons/voicetoggle.svg';
         img.alt = '';
         btn.appendChild(img);
       }
       btn.onclick = function () {
-        /* First tap arms the feature (settings has the same switch) — otherwise
-           the control exists but does nothing and looks broken. */
         if (Config.section('app').stt === 'off') Config.set('app.stt', 'webSpeech');
         Voice.toggle();
       };
@@ -1115,8 +1090,6 @@
       if (App._autoSendTimer) clearTimeout(App._autoSendTimer);
       App._autoSendTimer = setTimeout(function () {
         App._autoSendTimer = null;
-        /* The player may have edited it while the timer ran — then it is theirs
-           to send, not ours. */
         if (String(inp.value).trim() !== String(text).trim()) return;
         var send = document.getElementById('btn-send');
         if (send) send.click();
@@ -1137,27 +1110,25 @@
       input.onkeydown = function (e) { if (e.key === 'Enter') go(); };
       var hitEl = document.getElementById('avatar-hit');
       hitEl.onclick = function (ev) {
-        /* A drag ends with a click event; the pointer is not a tap then. */
         if (App._dragMoved) { App._dragMoved = false; return; }
         if (App._inTutorial) { Onboarding.tutorialAdvance(); return; }
         var rect = ev.target.getBoundingClientRect();
-        /* rect is in viewport px; layout px need the zoom divided out
-           (identity when zoom is 1 — phones/browser). */
         var z = (window.Avatar && Avatar.cssZoom) ? Avatar.cssZoom(ev.target) : 1;
         var x = (ev.clientX - rect.left) / z, y = (ev.clientY - rect.top) / z;
         var part = Avatar.hitPartAt(x, y);
-        if (!part) return;   /* miss = no ripple, no SE, no reaction */
+        if (!part) return;
         App._ripple(x, y);
         var overlay = Avatar.poke(part);
-        Welcome.mark('touch');   /* official activity: app_launched x1 */
+        Welcome.mark('touch');
         App.buzz();
         if (window.Sound) {
           Sound.se('touch_start');
           if (overlay) Sound.tapVoice(overlay);
         }
       };
+      
       /* 拖动立绘（报告：只能缩放背景、立绘拖不动）。阈值 6px：手指抖动仍算点
-         击（分部位点击必须活着），超过阈值才接管，并在随后的 click 里让位。 */
+         击（分部位点击必须活着），超过阈值才接管，并在随后的 click 里让位。*/
       App._bindDrag(hitEl);
       var retry = document.getElementById('btn-retry');
       if (retry) retry.onclick = function () {
@@ -1177,10 +1148,9 @@
         if (Quests.pendingAdvance()) {
           Quests.takeNext();
           Quests.render(document.getElementById('quest-list'), {});
-          Welcome.mark('mission_clear');   /* official activity: app_launched x3 */
+          Welcome.mark('mission_clear');   
           var st = Config.section('state');
-          var clip = VoiceBank.pick('wellDone', st.mode === 'asmr' ? 'whisper' : 'normal',
-                                    Alarm.todForHour(new Date().getHours()));
+          var clip = VoiceBank.pick('wellDone', st.mode === 'asmr' ? 'whisper' : 'normal', Alarm.todForHour(new Date().getHours()));
           setTimeout(function () { clip && App.playFile(clip); }, 500);
         }
       };
@@ -1238,9 +1208,6 @@
       var st = Config.section('state');
       var tod = st.tod;
       Config.set('state.stage', HOME_STAGE);
-      /* flow: sleeping skips the in-game clock to morning. real/manual keep
-         the current band (real stays on the wall clock; official sleep does
-         not jump AppServerClock). Stamina refill is independent of lighting. */
       if (World.llmDrivesClock()) {
         tod = 'mor';
         Config.set('state.tod', 'mor');
@@ -1250,7 +1217,7 @@
       App._loadSceneFor(HOME_STAGE, tod);
       Sound.setPlace(HOME_STAGE, tod, World.backgroundFor(HOME_STAGE));
       Game.refill();
-      Game.remember('安全なおうちでぐっすり眠った。');
+      Game.remember('Slept soundly at a safe home.');
       document.getElementById('overlay-faint').classList.add('hidden');
       App.showView('talk');
       App.toast(I18n.t('stamina.slept'));
@@ -1258,7 +1225,7 @@
     },
 
     _onSailed: function () {
-      Game.remember('船でクーケン島を出航した！');
+      Game.remember('Set Sail From Kurken Island By Ship!');
       App.toast(I18n.t('toast.sailed'));
       App.showView('world');
       App.renderWorld();
@@ -1290,6 +1257,7 @@
         d.className = 'st-sect'; d.textContent = t;
         root.appendChild(d);
       }
+      
       /* 满级标记走引擎接口 */
       var isMaxLv = !!(window.Ψ_x9 && window.Ψ_x9.λ6());
       sect(I18n.t('st.level') + ' ' + Game.level() + (isMaxLv ? ' ★MAX' : ''));
@@ -1340,9 +1308,6 @@
         var row = document.createElement('div');
         row.className = 'inv-row';
         row.innerHTML = '<span class="inv-name"></span><span class="inv-n"></span>';
-        /* Game.itemName, not the raw catalogue name: this list was the one place
-           that skipped localisation, so the same item read 「漂流WOOD」 here and
-           the translated name in the quest line beside it. */
         var name = Game.itemName(it.id);
         row.querySelector('.inv-name').textContent = name;
         row.querySelector('.inv-n').textContent = '×' + (it.count || 1);
@@ -1407,28 +1372,25 @@
        model so Ryza can reference other islanders by name. */
     _peopleBlock: function (st) {
       if (!window.World || !World.npcs) return '';
-      var L = ['## この世界の人々（ライザ以外）'];
+      var L = ['## People In This World (Excluding Ryza)'];
       var here = World.npcsAt(st.stage, st.day || 1);
-      L.push('- いま同じ場所にいる人：' +
+      L.push('- People currently in the same location: ' +
         (here.length ? here.map(function (n) {
           return World.npcName(n.id) + (n.note ? '（' + n.note + '）' : '');
-        }).join('、') : 'いない'));
+        }).join('、') : 'none'));
       var known = {};
       (World.npcs.npcs || []).forEach(function (n) { known[n.id] = n; });
       var met = (Game.s.met_charas || [])
         .map(function (id) { return known[id]; })
         .filter(Boolean).slice(0, 16);
       if (met.length) {
-        L.push('- これまでに会った人：' + met.map(function (n) {
+        L.push('- People met so far: ' + met.map(function (n) {
           return World.npcName(n.id) + (n.note ? '（' + n.note + '）' : '');
         }).join('、'));
       }
-      /* Facts above, roster + protocol below — the model cannot use a cast it
-         was never shown (web/js/npc.js). */
       if (window.Npc && Npc.promptBlock) {
         var npcBlock = Npc.promptBlock(st, {
           appCfg: Config.section('app'),
-          /* 回复语言与界面语言不同时，才允许模型附带「译文：」行 */
           translate: !!(window.Langs && Langs.llm && Langs.ui && Langs.llm() !== Langs.ui())
         });
         if (npcBlock) L.push('', npcBlock);
@@ -1448,8 +1410,6 @@
       Welcome.render(document.getElementById('welcome-body'));
       App.renderWorld();
       App.renderStatus();
-      /* the three panels that also carry UI strings (2026-09-07 audit fix:
-         these used to keep the old language until you happened to reopen them) */
       if (document.getElementById('skin-grid')) App.renderSkins();
       if (document.getElementById('memory-list')) App.renderMemory();
       if (window.Alarm && Alarm.render) {
@@ -1521,12 +1481,7 @@
           App.history = [];
           if (window.Nsfw) Nsfw.reset();
           App._pages = []; App._pageSel = -1;
-          var dots = document.getElementById('log-dots');
-          if (dots) dots.innerHTML = '';
-          var bub = document.getElementById('bubble');
-          if (bub) bub.classList.remove('hidden');
-          var bt = document.getElementById('bubble-text');
-          if (bt) bt.textContent = '';
+          App._clearChat();
           App.showView('talk');
           App.greet();
         }
@@ -1535,8 +1490,7 @@
 
     greet: function () {
       var st = Config.section('state');
-      var line = st.day > 1 ? I18n.tc('greet.n', '……今日も、会えたね。')
-                            : I18n.tc('greet.1', '……やあ、会えたね。');
+      var line = st.day > 1 ? I18n.tc('greet.n', '……今日も、会えたね。') : I18n.tc('greet.1', '……やあ、会えたね。');
       App.showBubble(line);
       Avatar.setEmotion('happy', 'agree');
     },
@@ -1553,18 +1507,18 @@
         App._showFaint();
         return;
       }
+      var isRetry = App._failedText === text;
+      App._failedText = null;
+      if (!isRetry) App._addUserMsg(text);
       App._lastText = text;
       var retryBar = document.getElementById('retry-bar');
       if (retryBar) retryBar.classList.add('hidden');
       App.speaking = true;
       document.getElementById('btn-send').disabled = true;
       App.showTyping();
-      Welcome.mark('talk');            /* official activity: app_launched x5 */
-
-      /* A new turn supersedes whatever was in flight: it stops her speech,
-         drops queued lines, and invalidates a reply still on the wire (the
-         epoch Api.chat re-checks when it resolves). */
+      Welcome.mark('talk');
       var turnEpoch = (window.Turn && Turn.beginTurn) ? Turn.beginTurn('say') : null;
+      
       /* 本轮用户说的话作为长期记忆的相关度线索（cue），
          并把这一轮记进待归纳队列（攒够 PENDING_MAX 自动归纳一次）。 */
       if (window.LongTerm) {
@@ -1579,8 +1533,6 @@
         nsfwSection: window.Nsfw ? Nsfw.screenFact() : ''
       })
         .then(function (reply) {
-          /* A reply that is no longer the current turn must not land at all —
-             not the history, not the game state, not the face. */
           if (!App._turnCurrent(turnEpoch)) return;
           App.speaking = false;
           if (window.Turn && Turn.finishTurn) Turn.finishTurn();
@@ -1598,53 +1550,33 @@
           Game.spend(cost, 'talk');
 
           if (window.Nsfw) Nsfw.onTurn(reply);
-          /* Omit = keep (same as undress). A missed tag must not snap the face
-             back to neutral/agree. */
           if (reply.emotion || reply.attitude) {
             Avatar.setEmotion(reply.emotion, reply.attitude);
           }
-          /* After side effects so the echoed line matches the new screen.
-             All fields (emotion / undress / stage) live on this one line —
-             stripping it from history made every column decay together. */
           App.history.push({
             role: 'assistant',
             content: Api.formatHistoryReply(reply.text)
           });
           App._sayReply(reply, turnEpoch);
-          /* 助手这一轮进长期记忆的待归纳队列（被 STALE 丢弃的回复不会走到这里） */
+          
           if (window.LongTerm) {
             try { LongTerm.note('assistant', reply.text); } catch (e) {}
           }
-
-          /* Talk-quests advance once per turn — if the LLM already reported
-             quest progress through <state>, don't double-count it here. */
           if (!(reply.state && reply.state.quest)) Quests.progressEvent('talk');
           Quests.render(document.getElementById('quest-list'), {});
         })
         .catch(function (e) {
-          /* Superseded on purpose (interruption / a newer turn): there is
-             nothing to report and no retry to offer — surfacing it would look
-             like a failure for something the user asked for.
-             This check MUST come before the state resets below: it used to sit
-             after them, so an aborted reply cleared App.speaking, pushed Turn
-             back to idle and re-enabled the send button *while the newer turn
-             was still generating* — the UI claimed it was not thinking and
-             accepted a third overlapping send. */
           if (e && e.stale) return;
           if (!App._turnCurrent(turnEpoch)) return;
           App.speaking = false;
           if (window.Turn && Turn.finishTurn) Turn.finishTurn();
           document.getElementById('btn-send').disabled = false;
+          App._failedText = text;
           var bar = document.getElementById('retry-bar');
           if (bar && e.message !== 'NO_KEY') bar.classList.remove('hidden');
           var msg = String(e.message || '');
           var kind = App._failKind(e);
-          App.toast(kind === 'nokey' ? I18n.t('toast.needKey')
-                 : kind === 'auth' ? I18n.t('toast.llmAuth')
-                 : kind === 'model' ? I18n.t('toast.llmModel')
-                 : I18n.t('toast.llmFail') + msg, true);
-          /* 面板台词必须指向真正的原因。原来不管什么错都写「没听见，再说一次」——
-             而那多数是端点/密钥问题，玩家会一直重发而不会去改设置。 */
+          App.toast(kind === 'nokey' ? I18n.t('toast.needKey') : kind === 'auth' ? I18n.t('toast.llmAuth') : kind === 'model' ? I18n.t('toast.llmModel') : I18n.t('toast.llmFail') + msg, true);
           App.showBubble(I18n.tc('bubble.fail.' + kind,
             kind === 'nokey' ? '（……ねえ、設定でAPIキーを入れないと、あたしの声が届かないみたい。）'
             : kind === 'auth' ? '（……あれ、鍵が合ってないみたい。設定を見直してくれる？）'
@@ -1689,10 +1621,6 @@
         : [{ speaker: 'ryza', id: '', name: '', text: String(reply.text || '') }];
       if (!beats.length) { App.typeBubble(''); return; }
       var mine = (window.Npc && Npc.spokenText) ? Npc.spokenText(beats) : reply.text;
-      /* 「原文/译文」显示策略。译文行**永不进 TTS**：它不在 mine 里
-         （spokenText 只取 ryza 拍），只在这里决定要不要显示。
-         设置里关掉「显示原文」时，面板先不写她的原句、只留译文行——
-         但语音照旧读原句（朗读与显示是两条线）。 */
       var showOriginal = true;
       try {
         var appCfg = Config.section('app') || {};
@@ -1700,11 +1628,10 @@
       } catch (e) {}
       var others = beats.filter(function (b) {
         if (b.speaker === 'ryza') return false;
-        /* 只要译文时，旁白/译文照显，NPC 行也保留（是别的角色在说话） */
         return true;
       });
       if (!showOriginal && others.some(function (b) { return b.speaker === 'translation'; })) {
-        mine = '';                       /* 不写原句，等下面只显示译文行 */
+        mine = '';
       }
 
       var showOthers = function () {
@@ -1718,12 +1645,6 @@
       };
 
       App.typeBubble(mine, function () {
-        /* The typewriter runs at the player's text speed, and the player can
-           send a new message while it is still going. Showing the line is fine
-           (it is what she said), but by the time it finishes this reply may no
-           longer be the current turn — and voicing it then speaks the
-           superseded line over the new one, with the new reply queued behind
-           it. */
         if (!App._turnCurrent(turnEpoch)) return;
         if (mine) App.speakThen(mine, reply.emotion);
         if (!others.length) return;
@@ -1743,9 +1664,6 @@
       var st = Config.section('state');
       var app = Config.section('app');
       if (!app.voice || st.style === 'text' || Config.section('tts').mode === 'off') return;
-      /* Turn owns the utterance: it runs the synth port (which applies the
-         language matrix and the per-mode voice direction) and the player port,
-         and it is what an interruption cancels. */
       Turn.speak(text, {
         mode: st.mode,
         emotion: emotion || (window.Avatar && Avatar.currentEmotion && Avatar.currentEmotion()) || '',
@@ -1756,9 +1674,9 @@
 
     /* 重播上一段语音（从缓存取，不重新合成）。 */
     replayLastVoice: function () {
-      if (!window.VoiceCache || !App._lastVoiceKey) { App.toast('没有可重播的语音'); return; }
+      if (!window.VoiceCache || !App._lastVoiceKey) { App.toast('No voice line to replay'); return; }
       VoiceCache.urlFor(App._lastVoiceKey).then(function (url) {
-        if (!url) { App.toast('这段语音已不在缓存里'); return; }
+        if (!url) { App.toast('This voice line is no longer cached'); return; }
         var a = App.audio;
         if (!a) return;
         try {
@@ -1767,15 +1685,15 @@
           a.play().catch(function () {});
           Avatar.setTalking(true);
           a.onended = function () { Avatar.setTalking(false); try { URL.revokeObjectURL(url); } catch (e) {} };
-        } catch (e) { App.toast('重播失败'); }
-      }).catch(function () { App.toast('重播失败'); });
+        } catch (e) { App.toast('Replay failed'); }
+      }).catch(function () { App.toast('Replay failed'); });
     },
 
     /* 收藏 / 取消收藏上一段语音（收藏的片段不会被字节预算逐出） */
     favLastVoice: function () {
-      if (!window.VoiceCache || !App._lastVoiceKey) { App.toast('没有可收藏的语音'); return; }
+      if (!window.VoiceCache || !App._lastVoiceKey) { App.toast('No voice line to favorite'); return; }
       var on = VoiceCache.toggleFav(App._lastVoiceKey);
-      App.toast(on ? '已收藏这段语音' : '已取消收藏');
+      App.toast(on ? 'Voice line favorited' : 'Removed from favorites');
     },
 
     /* Shared end-of-audio bookkeeping. The rate reset is not cosmetic: ASMR
@@ -1809,12 +1727,6 @@
         function stop() { App._stopAudio(url, 1600); settle(); }
         if (!a) { settle(); return; }
         a.addEventListener('ended', settle);
-        /* A failed load / decode fires `error`, not `ended`, and a rejected
-           play() (autoplay policy) never fires either. Without these two the
-           returned promise stayed pending forever: Turn stayed in SPEAKING, and
-           because Voice gates transcripts on Turn.isSpeaking() the microphone
-           would be deaf for the rest of the session — the one failure mode the
-           turn layer is not allowed to have. */
         a.addEventListener('error', stop);
         if (signal) {
           if (signal.aborted) { stop(); return; }
@@ -1840,13 +1752,13 @@
       a.playbackRate = (fx && fx.rate) || 1;
       a.onended = function () { App._stopAudio(url, 1600); };
       Avatar.setTalking(true);
-      App._bubbleKeep();         /* stay put while she talks */
+      App._bubbleKeep();
       var playing = a.play();
       if (playing && typeof playing.catch === 'function') {
         playing.catch(function () { Avatar.setTalking(false); });
       }
       App.buzz();
-      return playing;            /* callers that need to know it failed use this */
+      return playing;
     },
 
     _pauseVoice: function () {
@@ -1888,46 +1800,20 @@
     _bubbleKeep: function () {
       if (App._bubbleTimer) { clearTimeout(App._bubbleTimer); App._bubbleTimer = null; }
     },
-    _bubbleHold: function () { /* panel is persistent — no scheduled fade */ },
-    _bubbleReveal: function () { /* no-op seam */ },
+    _bubbleHold: function () { },
+    _bubbleReveal: function () { },
 
     /* the pill's own two official placeholder states (input.hint lives in
        the CONTENT table → tc; input.waiting is a UI key → t) */
     _inputHint: function (waiting) {
       var inp = document.getElementById('input');
       if (!inp) return;
-      inp.placeholder = waiting ? I18n.t('input.waiting')
-                                : I18n.tc('input.hint', inp.placeholder);
+      inp.placeholder = waiting ? I18n.t('input.waiting') : I18n.tc('input.hint', inp.placeholder);
     },
 
-    _pushPage: function (text) {
-      if (!text) return;
-      var last = App._pages[App._pages.length - 1];
-      if (last === text) return;
-      App._pages.push(text);
-      if (App._pages.length > 5) App._pages.shift();
-      App._pageSel = App._pages.length - 1;
-      App._renderDots();
-    },
-    _renderDots: function () {
-      var host = document.getElementById('log-dots');
-      if (!host) return;
-      host.innerHTML = '';
-      if (App._pages.length < 2) return;
-      App._pages.forEach(function (t, i) {
-        var d = document.createElement('i');
-        if (i === App._pageSel) d.className = 'on';
-        d.title = (i + 1) + ' / ' + App._pages.length;
-        d.onclick = function () {
-          App._pageSel = i;
-          document.getElementById('bubble-text').textContent = App._pages[i];
-          var lb = document.getElementById('log-body');
-          if (lb) lb.scrollTop = 0;   // reviewing an older message: read from its top
-          App._renderDots();
-        };
-        host.appendChild(d);
-      });
-    },
+    /* kept as no-ops: older call sites still reference them */
+    _pushPage: function () {},
+    _renderDots: function () {},
     _cycleTextSpeed: function () {
       var cur = Config.textSpeed();
       var idx = 0;
@@ -1955,16 +1841,51 @@
       }
     },
 
+    /* ---- chat log: every message (yours and hers) is a row in one list.
+       Rows are appended, never replaced; the list auto-scrolls to the bottom. */
+    _chatList: function () { return document.getElementById('chat-list'); },
+    _clearChat: function () {
+      var l = App._chatList(); if (l) l.innerHTML = '';
+      App._curAi = null;
+    },
+    _nearBottom: function () {
+      var b = document.getElementById('log-body');
+      return !b || (b.scrollHeight - b.scrollTop - b.clientHeight) < 90;
+    },
+    _addMsg: function (role, text) {
+      var list = App._chatList();
+      if (!list) return null;
+      var row = document.createElement('div');
+      row.className = 'msg ' + role;
+      var bub = document.createElement('div');
+      bub.className = 'bubble';
+      bub.textContent = text || '';
+      row.appendChild(bub);
+      list.appendChild(row);
+      /* keep the DOM light on very long sessions */
+      while (list.children.length > 200) list.removeChild(list.firstChild);
+      App._scrollLog(true);
+      return bub;
+    },
+    _addUserMsg: function (text) { App._addMsg('user', text); },
+    /* the AI row currently being filled: reuse the typing-dots row if there is one */
+    _takeAi: function () {
+      var el = App._curAi;
+      if (el && el.isConnected) { App._curAi = null; return el; }
+      App._curAi = null;
+      return App._addMsg('ai', '');
+    },
+
     showTyping: function () {
       App._panelUp();
-      var b = document.getElementById('bubble');
       var vig = document.getElementById('vignette');
+      if (App._curAi && App._curAi.isConnected) App._curAi.parentNode.remove();
+      var b = App._addMsg('ai', '');
       if (b) {
-        b.classList.remove('hidden');
         b.classList.add('typing', 'speaking');
+        b.innerHTML = '<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>';
+        App._curAi = b;
       }
-      document.getElementById('bubble-text').innerHTML =
-        '<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>';
       if (vig) vig.classList.add('talk-glow');
       App._inputHint(true);
     },
@@ -1973,51 +1894,63 @@
       App._panelUp();
       var vig = document.getElementById('vignette');
       if (vig) vig.classList.remove('talk-glow');
-      var b = document.getElementById('bubble');
-      if (b) b.classList.remove('typing', 'speaking', 'hidden');
-      if (Config.section('app').showBubble === false) return;
-      document.getElementById('bubble-text').textContent = text;
-      App._pushPage(text);
+      if (Config.section('app').showBubble === false) {
+        if (App._curAi && App._curAi.isConnected) App._curAi.parentNode.remove();
+        App._curAi = null;
+        return;
+      }
+      var b = App._takeAi();
+      if (b) { b.classList.remove('typing', 'speaking'); b.textContent = text; }
+      App._scrollLog(true);
       App._inputHint(false);
     },
 
     typeBubble: function (text, done) {
       App._panelUp();
       if (App._typeTimer) clearTimeout(App._typeTimer);
-      /* generation token: a second chain (retry/alarm while the first line is
-         still typing) kills the old one instead of interleaving writes */
       var gen = ++App._typeGen;
-      var b = document.getElementById('bubble');
-      var span = document.getElementById('bubble-text');
       var vig = document.getElementById('vignette');
-      if (b) {
-        b.classList.remove('hidden');
-        b.classList.remove('typing');
-        b.classList.add('speaking');
+      if (!text) {
+        if (App._curAi && App._curAi.isConnected) App._curAi.parentNode.remove();
+        App._curAi = null;
+        if (vig) vig.classList.remove('talk-glow');
+        App._inputHint(false);
+        done && done();
+        return;
       }
+      var b = App._takeAi();
+      if (!b) { done && done(); return; }
+      b.classList.remove('typing');
+      b.classList.add('speaking');
+      b.textContent = '';
       if (vig) vig.classList.add('talk-glow');
       var speed = Config.textSpeed();
       var i = 0;
       (function step() {
         if (gen !== App._typeGen) return;
         if (i >= text.length) {
-          if (b) b.classList.remove('speaking');
+          b.classList.remove('speaking');
           if (vig) vig.classList.remove('talk-glow');
-          App._pushPage(text);
           App._inputHint(false);
           done && done();
           return;
         }
-        span.textContent = text.slice(0, ++i);
+        b.textContent = text.slice(0, ++i);
         App._scrollLog();
         App._typeTimer = setTimeout(step, speed);
       })();
     },
-    /* a long reply scrolls inside the panel (dots switch between messages;
-       scrolling reads THIS one when it overflows) — keeps up with the typewriter */
-    _scrollLog: function () {
+    
+    /* auto-scroll to the newest line. While she types it only follows if you
+       are already at the bottom, so scrolling up to reread isn't yanked back. */
+    _scrollLog: function (force) {
       var b = document.getElementById('log-body');
-      if (b) b.scrollTop = b.scrollHeight;
+      if (!b) return;
+      if (force || App._nearBottom()) {
+        b.style.scrollBehavior = 'auto';
+        b.scrollTop = b.scrollHeight;
+        b.style.scrollBehavior = '';
+      }
     },
 
     /* ------------------------------------------------------------ alarms */
@@ -2097,21 +2030,15 @@
     _alarmForm: function (id) {
       var existing = id ? Alarm.get(id) : null;
       var now = new Date();
-      var defTime = existing ? existing.time : (
-        String(now.getHours()).padStart(2, '0') + ':' +
-        String(now.getMinutes()).padStart(2, '0'));
+      var defTime = existing ? existing.time : (String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0'));
       var defType = (existing && existing.type) || 'goodMorning';
       var defStyle = (existing && existing.style) || 'normal';
       var defDays = (existing && existing.days) ? existing.days.slice() : [];
       var defSnooze = (existing && existing.snoozeMin != null) ? existing.snoozeMin : 5;
       var defVol = (existing && existing.volume != null) ? existing.volume : 1;
       var defVib = existing ? existing.vibrate !== false : true;
-      /* defTime is interpolated into the form's innerHTML — an imported save
-         slot could carry Alarm.items with arbitrary strings. Whitelist the
-         HH:MM shape before it reaches the DOM. */
       if (!/^\d{1,2}:\d{2}$/.test(defTime)) {
-        defTime = String(now.getHours()).padStart(2, '0') + ':' +
-                  String(now.getMinutes()).padStart(2, '0');
+        defTime = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
       }
 
       App.openModal({
@@ -2122,18 +2049,15 @@
             '<input type="time" id="f-alarm-time" value="' + defTime + '" required>'));
 
           var typeOpts = Alarm.TYPES.map(function (t) {
-            return '<option value="' + t + '"' + (t === defType ? ' selected' : '') + '>' +
-                   I18n.t('alarm.type.' + t) + '</option>';
+            return '<option value="' + t + '"' + (t === defType ? ' selected' : '') + '>' + I18n.t('alarm.type.' + t) + '</option>';
           }).join('');
           body.appendChild(App._fieldEl(I18n.t('alarm.kind'),
             '<select id="f-alarm-type">' + typeOpts + '</select>'));
 
           var styleOpts = Alarm.STYLES.map(function (s) {
-            return '<option value="' + s + '"' + (s === defStyle ? ' selected' : '') + '>' +
-                   I18n.t('alarm.style.' + s) + '</option>';
+            return '<option value="' + s + '"' + (s === defStyle ? ' selected' : '') + '>' + I18n.t('alarm.style.' + s) + '</option>';
           }).join('');
-          body.appendChild(App._fieldEl(I18n.t('alarm.tone'),
-            '<select id="f-alarm-style">' + styleOpts + '</select>'));
+          body.appendChild(App._fieldEl(I18n.t('alarm.tone'), '<select id="f-alarm-style">' + styleOpts + '</select>'));
 
           var days = document.createElement('div');
           days.className = 'field';
@@ -2155,15 +2079,12 @@
           days.appendChild(chips);
           var hint = document.createElement('div');
           hint.className = 'hint';
-          hint.textContent = I18n.t('alarm.everyday') + ' — ' +
-            (I18n.lang === 'en' ? 'leave all off' : (I18n.lang === 'ja' ? '未選択で毎日' : '全不选即每天'));
+          hint.textContent = I18n.t('alarm.everyday') + ' — ' + (I18n.lang === 'en' ? 'leave all off' : (I18n.lang === 'ja' ? '未選択で毎日' : '全不选即每天'));
           days.appendChild(hint);
           body.appendChild(days);
 
-          body.appendChild(App._fieldEl(I18n.t('alarm.snooze') + ' (' + I18n.t('alarm.min') + ')',
-            '<input type="number" id="f-alarm-snooze" min="1" max="30" value="' + defSnooze + '">'));
-          body.appendChild(App._fieldEl(I18n.t('alarm.volume'),
-            '<input type="range" id="f-alarm-vol" min="0" max="1" step="0.05" value="' + defVol + '">'));
+          body.appendChild(App._fieldEl(I18n.t('alarm.snooze') + ' (' + I18n.t('alarm.min') + ')', '<input type="number" id="f-alarm-snooze" min="1" max="30" value="' + defSnooze + '">'));
+          body.appendChild(App._fieldEl(I18n.t('alarm.volume'), '<input type="range" id="f-alarm-vol" min="0" max="1" step="0.05" value="' + defVol + '">'));
           var vib = document.createElement('label');
           vib.className = 'switch-row';
           vib.innerHTML = '<span></span><input type="checkbox" id="f-alarm-vib"' +
@@ -2173,7 +2094,7 @@
         },
         onOk: function (body) {
           var time = (body.querySelector('#f-alarm-time').value || '').slice(0, 5);
-          if (!/^\d{2}:\d{2}$/.test(time)) { App.toast('请填写时间', true); return false; }
+          if (!/^\d{2}:\d{2}$/.test(time)) { App.toast('Please enter a time', true); return false; }
           var type = body.querySelector('#f-alarm-type').value;
           var style = body.querySelector('#f-alarm-style').value;
           var days = [];
@@ -2256,7 +2177,7 @@
           el.innerHTML = '<div class="card-title"><span class="tag' +
             (m.who === 'ryza' ? '' : ' leaf') + ' t-who"></span></div>' +
             '<div class="card-sub t-text"></div>';
-          el.querySelector('.t-who').textContent = m.who === 'ryza' ? 'ライザ' : '你';
+          el.querySelector('.t-who').textContent = m.who === 'ryza' ? 'Ryza' : 'You';
           el.querySelector('.t-text').textContent = m.text;
           root.appendChild(el);
         });
@@ -2392,7 +2313,6 @@
     renderSkins: function () {
       fetch('assets/_index/skins.json').then(function (r) { return r.json(); })
         .then(function (skins) {
-          /* 导入的服装不在 skins.json 里，拼在前面（玩家自己加的排最前） */
           var imported = (Avatar.skinsIndex || []).filter(function (x) { return x.imported; });
           if (imported.length) skins = imported.concat(skins);
           var root = document.getElementById('skin-grid');
@@ -2409,9 +2329,6 @@
             outfits.push(seen[oid]);
           });
           root.innerHTML = '';
-          /* The posture rule used to exist only as a string nobody rendered
-             (skin.postureHint) — the player could not tell whether the button
-             was missing or the stage simply did not allow it. */
           var hintEl = document.getElementById('skin-posture-hint');
           if (hintEl) {
             hintEl.textContent = I18n.t('skin.postureHint') +
@@ -2422,8 +2339,7 @@
             var el = document.createElement('div');
             var wearable = !!s.hasSpine;
             el.className = 'skin-card' + (s.id === cur ? ' active' : '') + (wearable ? '' : ' locked');
-            el.innerHTML = '<img><div class="skin-cap"><span class="t-name"></span>' +
-                           '<span class="skin-id"></span></div>';
+            el.innerHTML = '<img><div class="skin-cap"><span class="t-name"></span>' + '<span class="skin-id"></span></div>';
             var img = el.querySelector('img');
             img.src = s.preview || 'assets/images/chara_placeholder.png';
             img.onerror = function () { img.src = 'assets/images/chara_placeholder.png'; };
@@ -2478,9 +2394,8 @@
       el.addEventListener('pointerdown', function (ev) {
         if (App._inTutorial) return;
         drag.id = ev.pointerId; drag.x = ev.clientX; drag.y = ev.clientY;
-        /* Consumed by the click that may follow the previous gesture. */
         App._dragMoved = false;
-        try { el.setPointerCapture(ev.pointerId); } catch (e) { /* no capture */ }
+        try { el.setPointerCapture(ev.pointerId); } catch (e) { }
       });
       el.addEventListener('pointermove', function (ev) {
         if (drag.id !== ev.pointerId) return;
@@ -2494,9 +2409,6 @@
       var end = function (ev) {
         if (drag.id !== ev.pointerId) return;
         drag.id = null;
-        /* No reset here: the click that follows this event consumes the flag,
-           and the next pointerdown clears whatever is left. A timer would race
-           the click and turn a drag release into a poke. */
       };
       el.addEventListener('pointerup', end);
       el.addEventListener('pointercancel', end);

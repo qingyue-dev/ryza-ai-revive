@@ -217,7 +217,6 @@
         Sound._playLoop(Sound.amb, Sound._ambientSrc(), 'ambient', 0.35);
         return;
       }
-      /* talk and every other in-game screen: location ambient, no BGM. */
       Sound._playLoop(Sound.bgm, '', 'bgm');
       Sound._playLoop(Sound.amb, Sound._ambientSrc(), 'ambient');
     },
