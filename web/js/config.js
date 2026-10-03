@@ -96,6 +96,7 @@
       showBubble: true,
       stt: 'off',
       autoSend: false,
+      kbAutoSend: true,
       autoSendDelay: 2000,
       npcFrequency: 'normal',
       bargeIn: false,
@@ -140,6 +141,11 @@
     data = deepMerge(DEFAULTS, JSON.parse(localStorage.getItem(KEY) || '{}'));
   } catch (e) {
     data = deepMerge(DEFAULTS, {});
+  }
+  if (data.chara && !data.chara.callMeLinked) {
+    var linkedName = data.profile && String(data.profile.name || '').trim();
+    if (linkedName) data.chara.callMe = linkedName;
+    data.chara.callMeLinked = true;
   }
   if (data.state && data.state.skin) {
     data.state.skin = String(data.state.skin).replace(/_(01|99)$/, '');
@@ -189,6 +195,12 @@
         node = node[parts[i]];
       }
       node[parts[parts.length - 1]] = value;
+      /* "What she calls you" is locked in the UI and mirrors the player's name.
+         The system can still write chara.callMe directly. */
+      if (path === 'profile.name') {
+        if (typeof data.chara !== 'object' || data.chara === null) data.chara = {};
+        data.chara.callMe = String(value == null ? '' : value).trim() || DEFAULTS.chara.callMe;
+      }
       Config.save();
     },
     save: function () {

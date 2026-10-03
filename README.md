@@ -51,7 +51,7 @@ Structural tables (JSON, atlas, SVG) live in `web/assets/` and are versioned wit
 结构表随仓库版本管理；体积较大的栅格图、音频与骨骼二进制在完整运行或打包前本地恢复：
 
 ```powershell
-python scripts/restore_media.py path\to\RyzaChat-1.2.24.apk
+python scripts/restore_media.py path\to\RyzaChat-1.2.25.apk
 python scripts/restore_media.py path\to\win-unpacked\resources\web
 ```
 

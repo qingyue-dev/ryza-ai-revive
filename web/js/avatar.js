@@ -852,7 +852,7 @@
       var tries = 0;
       (function poll() {
         if (a.isLoadingComplete()) {
-          if (a.hasErrors()) { done(new Error('素材加载失败：' + skelUrl)); return; }
+          if (a.hasErrors()) { done(new Error((window.I18n && I18n.tf ? I18n.tf('avatar.loadFail', 'Failed to load asset: {url}', { url: skelUrl }) : 'Failed to load asset: ' + skelUrl))); return; }
           try {
             var atlas = a.require(atlasUrl);
             var loader = new spine.AtlasAttachmentLoader(atlas);
@@ -877,7 +877,7 @@
           } catch (e) { done(e); }
           return;
         }
-        if (++tries > 900) { done(new Error('加载超时：' + skelUrl)); return; }
+        if (++tries > 900) { done(new Error((window.I18n && I18n.tf ? I18n.tf('avatar.loadTimeout', 'Asset load timed out: {url}', { url: skelUrl }) : 'Asset load timed out: ' + skelUrl))); return; }
         setTimeout(poll, 50);
       })();
     },

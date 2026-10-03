@@ -227,14 +227,14 @@
       if (Config.section('tts').mode === 'clone') {
         App._field(w, T('settings.model'), Config.section('tts').modelClone,
           function (v) { Config.set('tts.modelClone', v); },
-          { hint: '克隆通道使用的模型 id（服务端提供，如 MiMo 的声音克隆模型）' });
+          { hint: T('settings.cloneModel.hint') });
         App._field(w, T('settings.refAudio'), Config.section('tts').reference,
           function (v) { Config.set('tts.reference', v); },
-          { hint: '必须是 wav 或 mp3；APK 里的原声是 m4a，需先转码' });
+          { hint: T('settings.refAudio.hint') });
       } else if (Config.section('tts').mode === 'preset') {
         App._field(w, T('settings.model'), Config.section('tts').modelPreset,
           function (v) { Config.set('tts.modelPreset', v); },
-          { hint: '预设音色通道使用的模型 id（服务端提供）' });
+          { hint: T('settings.presetModel.hint') });
         App._field(w, T('settings.presetVoice'), Config.section('tts').presetVoice,
           function (v) { Config.set('tts.presetVoice', v); });
       }
@@ -312,6 +312,8 @@
         function (v) { Config.set('app.vibration', v); });
       App._switch(w, T('settings.rim'), Config.section('app').rim !== false,
         function (v) { Config.set('app.rim', v); });
+      App._switch(w, T('settings.kbAutoSend'), Config.section('app').kbAutoSend !== false,
+        function (v) { Config.set('app.kbAutoSend', !!v); if (App._syncEnterHint) App._syncEnterHint(); });
 
       /* NSFW/undress is always enabled — switch removed */
       App._switch(w, T('settings.stt'), Config.section('app').stt !== 'off',
@@ -607,14 +609,19 @@
         function (v) { Config.set('chara.dislikes', v); });
       App._field(w, T('chara.situation'), c.situation,
         function (v) { Config.set('chara.situation', v); });
-      App._field(w, T('chara.callMe'), c.callMe,
-        function (v) { Config.set('chara.callMe', v); });
+      /* Locked: always mirrors profile.name (Config.set keeps them in sync). */
+      var callField = App._field(w, T('chara.callMe'), p.name || c.callMe,
+        function () {}, { disabled: true, hint: T('chara.callMe.hint') });
+      var callInput = callField.querySelector('input');
       App._field(w, T('chara.extra'), c.extra,
         function (v) { Config.set('chara.extra', v); }, { multi: true });
 
       App._title(w, I18n.tc('chara.you', 'You') + ' — ' + I18n.tc('nav.profile', 'Profile'));
       App._field(w, T('onb.name'), p.name,
-        function (v) { Config.set('profile.name', v); });
+        function (v) {
+          Config.set('profile.name', v);
+          callInput.value = Config.section('chara').callMe || '';
+        });
       App._field(w, T('onb.birthday'), p.birthday,
         function (v) { Config.set('profile.birthday', v); }, { type: 'date' });
       App._select(w, T('onb.gender'), p.gender || '', [
@@ -653,6 +660,7 @@
       b2.onclick = function () {
         if (confirm(T('chara.clearMemory.confirm'))) {
           App.history = []; App.toast(I18n.t('chara.clearMemory.done'));
+          if (window.ChatStore) { ChatStore.setHistory([]); ChatStore.save(); }
         }
       };
       row.appendChild(b2);
@@ -686,6 +694,7 @@
         at: Date.now(),
         day: st.day,
         label: place ? (place.area + ' / ' + place.stage) : st.stage,
+        stageId: st.stage,
         settings: JSON.parse(Config.exportJSON()),
         history: App.history,
         memory: App.memory,
@@ -730,7 +739,16 @@
       App.renderSkins();
       I18n.setLang(Config.section('app').lang);
       App.applyI18n(document);
+      try { App._chatResync(); } catch (e) {}
       return true;
+    },
+
+    /* Place names follow the UI language; old saves only stored a Japanese label. */
+    _slotLabel: function (s) {
+      var id = s.stageId || (s.settings && s.settings.state && s.settings.state.stage);
+      var p = id && window.World && World.find ? World.find(id) : null;
+      if (!p) return s.label || '';
+      return World.placeLabel(p.areaId, p.area) + ' / ' + World.placeLabel(p.stageId, p.stage);
     },
 
     _renderSlots: function (wrap) {
@@ -742,7 +760,7 @@
         info.className = 'slot-info';
         if (s) {
           var d = new Date(s.at);
-          info.textContent = (i + 1) + '. ' + (s.label || '') + ' · day ' + (s.day || 1) + ' · ' + 'Lv' + (s.game ? 1 + Math.floor(Math.sqrt((s.game.exp_total || 0) / 30)) : '?') + ' · ' + d.toLocaleDateString() + ' ' + d.toLocaleTimeString();
+          info.textContent = (i + 1) + '. ' + Settings._slotLabel(s) + ' · ' + I18n.tf('drawer.days', 'Day {n} together', { n: (s.day || 1) }) + ' · ' + 'Lv' + (s.game ? 1 + Math.floor(Math.sqrt((s.game.exp_total || 0) / 30)) : '?') + ' · ' + d.toLocaleDateString() + ' ' + d.toLocaleTimeString();
         } else {
           info.textContent = (i + 1) + '. ' + I18n.t('slot.empty');
         }

@@ -132,6 +132,9 @@
       App.audio.crossOrigin = 'anonymous';
       try { App.memory = JSON.parse(localStorage.getItem(MEM_KEY) || '[]'); }
       catch (e) { App.memory = []; }
+      try {
+        if (window.ChatStore) { ChatStore.load(); App.history = ChatStore.history().slice(); }
+      } catch (e) {}
 
       Game.load();
       Daily.load();
@@ -140,6 +143,7 @@
 
       App._bindChrome();
       App._bindTalk();
+      App._bindLifecycle();
       App._bindOverlays();
       Game.on(function () { App.refreshHud(); App._syncOpenViews(); });
 
@@ -370,7 +374,8 @@
         App._dailyNudge();
       }
       if (fromOnboard) return;
-      App.greet();
+      if (App._restoreChat()) App._resumePending();
+      else App.greet();
     },
 
     _tickDay: function () {
@@ -834,7 +839,9 @@
       }));
       var npcs = World.npcsAt(stageId, st.day || 1);
       var names = Game.meetCharas(npcs, st.day);
-      if (names.length) Game.remember(names.join('、') + ' と出会った。');
+      if (names.length) Game.remember(I18n.tf('mem.met', '{names} と出会った。', {
+        names: names.join((I18n.lang === 'ja' || I18n.lang === 'zh' || I18n.lang === 'zh-tw') ? '、' : ', ')
+      }));
       Quests.progressEvent('explore');
       App.showView('talk');
     },
@@ -1109,7 +1116,34 @@
         App.say(text);
       };
       send.onclick = go;
-      input.onkeydown = function (e) { if (e.key === 'Enter') go(); };
+      var kbOn = function () { return Config.section('app').kbAutoSend !== false; };
+      var fit = function () {
+        input.style.height = 'auto';
+        input.style.height = Math.min(input.scrollHeight, 118) + 'px';
+      };
+      /* keep the height in sync when the value is set from code (voice, inventory…) */
+      try {
+        var vd = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
+        Object.defineProperty(input, 'value', {
+          configurable: true,
+          get: function () { return vd.get.call(this); },
+          set: function (v) { vd.set.call(this, v); fit(); }
+        });
+      } catch (e) {}
+      App._syncEnterHint = function () { input.setAttribute('enterkeyhint', kbOn() ? 'send' : 'enter'); };
+      App._syncEnterHint();
+      input.addEventListener('input', fit);
+      input.addEventListener('focus', App._syncEnterHint);
+      /* auto send ON: Enter / keyboard send key sends. OFF: Enter inserts a new line. */
+      input.onkeydown = function (e) {
+        if (e.key === 'Enter' && !e.isComposing && kbOn()) { e.preventDefault(); go(); }
+      };
+      input.addEventListener('beforeinput', function (e) {
+        if (kbOn() && (e.inputType === 'insertLineBreak' || e.inputType === 'insertParagraph')) {
+          e.preventDefault(); go();
+        }
+      });
+      fit();
       var hitEl = document.getElementById('avatar-hit');
       hitEl.onclick = function (ev) {
         if (App._dragMoved) { App._dragMoved = false; return; }
@@ -1485,6 +1519,15 @@
         },
         onOk: function () {
           App.history = [];
+          /* drop the saved conversation and anything still in flight */
+          App._inflight = null; App._pendingResend = null; App._autoTries = {};
+          App._failedText = null; App._lastText = '';
+          App._wakeHold(false);
+          if (window.ChatStore) ChatStore.reset();
+          if (window.Turn && Turn.beginTurn) { Turn.beginTurn('new-talk'); if (Turn.finishTurn) Turn.finishTurn(); }
+          App.speaking = false;
+          var sendBtn = document.getElementById('btn-send'); if (sendBtn) sendBtn.disabled = false;
+          var rbar = document.getElementById('retry-bar'); if (rbar) rbar.classList.add('hidden');
           if (window.Nsfw) Nsfw.reset();
           App._pages = []; App._pageSel = -1;
           App._clearChat();
@@ -1492,6 +1535,141 @@
           App.greet();
         }
       });
+    },
+
+    /* ------------------------------------------------ keep talking when you leave */
+    /* Leaving the app can cut the connection to the model. The message that was
+       waiting for an answer is remembered (ChatStore pending) and sent again when
+       you come back, so the answer still arrives. */
+    _autoTries: {},
+    _inflight: null,
+    _pendingResend: null,
+    _lastHiddenAt: 0,
+    _missedVoice: null,
+
+    _bindLifecycle: function () {
+      var flush = function () { try { if (window.ChatStore) ChatStore.save(); } catch (e) {} };
+      document.addEventListener('visibilitychange', function () {
+        if (document.hidden) { App._lastHiddenAt = Date.now(); flush(); return; }
+        var away = App._lastHiddenAt ? Date.now() - App._lastHiddenAt : 0;
+        if (App._missedVoice) {
+          var mv = App._missedVoice; App._missedVoice = null;
+          try { App.speakThen(mv.text, mv.emotion); } catch (e) {}
+        }
+        App._flushResend();
+        var f = App._inflight;
+        /* away for a while and still no answer: the link most likely died, send again */
+        if (f && App._lastHiddenAt >= f.startedAt - 1000 && away > 15000) {
+          setTimeout(function () {
+            if (App._inflight && App._inflight.id === f.id && App._canAutoRetry(f.text)) App._scheduleResend(f.text);
+          }, 6000);
+        }
+      });
+      window.addEventListener('pagehide', flush);
+      window.addEventListener('online', function () { App._flushResend(); });
+    },
+
+    _interruptedSince: function (t) {
+      return !!(document.hidden || (App._lastHiddenAt && App._lastHiddenAt >= t - 1000));
+    },
+    _canAutoRetry: function (text) { return (App._autoTries[text] || 0) < 3; },
+    _scheduleResend: function (text) {
+      App._autoTries[text] = (App._autoTries[text] || 0) + 1;
+      App._pendingResend = text;
+      App._flushResend();
+    },
+    _flushResend: function () {
+      if (document.hidden || !App._pendingResend) return;
+      var t = App._pendingResend;
+      App._pendingResend = null;
+      App.toast(I18n.tc('chat.reconnecting', 'Connection was interrupted \u2014 retrying\u2026'));
+      App._failedText = t;
+      setTimeout(function () { App.say(t); }, 400);
+    },
+
+    /* keep the screen awake only while waiting for an answer */
+    _wake: null,
+    _wakeHold: function (on) {
+      try {
+        if (!on) {
+          if (App._wake) { App._wake.release(); App._wake = null; }
+          return;
+        }
+        if (!navigator.wakeLock || App._wake) return;
+        navigator.wakeLock.request('screen').then(function (lock) {
+          if (!App._inflight) { try { lock.release(); } catch (e) {} return; }
+          App._wake = lock;
+          lock.addEventListener('release', function () { if (App._wake === lock) App._wake = null; });
+        }).catch(function () {});
+      } catch (e) {}
+    },
+
+    /* the answer arrived while the app was in the background: no typing, no voice yet */
+    _showReplyInstant: function (reply) {
+      var beats = (window.Npc && Npc.split)
+        ? Npc.split(reply.text)
+        : [{ speaker: 'ryza', id: '', name: '', text: String(reply.text || '') }];
+      var mine = (window.Npc && Npc.spokenText) ? Npc.spokenText(beats) : reply.text;
+      if (mine) App.showBubble(mine); else App.typeBubble('');
+      beats.forEach(function (b) {
+        if (b.speaker === 'ryza') return;
+        var lab = (window.Npc && Npc.labelFor) ? Npc.labelFor(b) : '';
+        App._addMsg('ai', lab ? lab + '\uff1a' + b.text : b.text);
+      });
+      if (mine) App._missedVoice = { text: mine, emotion: reply.emotion };
+    },
+
+    _restoreChat: function () {
+      if (App._chatRestored) return false;
+      App._chatRestored = true;
+      if (!window.ChatStore || !ChatStore.hasConversation()) return false;
+      App._renderLog();
+      return true;
+    },
+    _renderLog: function () {
+      App._clearChat();
+      ChatStore.log().forEach(function (m) {
+        if (m.r === 'u') App._addMsg('user', m.t);
+        else App._renderSavedReply(m.t);
+      });
+      App._scrollLog(true);
+    },
+    _renderSavedReply: function (text) {
+      var beats = (window.Npc && Npc.split) ? Npc.split(text) : [{ speaker: 'ryza', text: String(text || '') }];
+      var mine = (window.Npc && Npc.spokenText) ? Npc.spokenText(beats) : String(text || '');
+      if (mine) App._addMsg('ai', mine);
+      beats.forEach(function (b) {
+        if (b.speaker === 'ryza') return;
+        var lab = (window.Npc && Npc.labelFor) ? Npc.labelFor(b) : '';
+        App._addMsg('ai', lab ? lab + '\uff1a' + b.text : b.text);
+      });
+    },
+
+    /* a message was waiting for an answer when the app closed */
+    _resumePending: function () {
+      if (!window.ChatStore) return;
+      var p = ChatStore.pending();
+      if (!p || !p.text) return;
+      App._failedText = p.text;
+      App._lastText = p.text;
+      var tooOld = (Date.now() - (p.at || 0)) > 30 * 60 * 1000;
+      if (p.failed || tooOld) {
+        var bar = document.getElementById('retry-bar');
+        if (bar) bar.classList.remove('hidden');
+        return;
+      }
+      App.toast(I18n.tc('chat.resuming', 'Picking up your last message\u2026'));
+      setTimeout(function () { App.say(p.text); }, 500);
+    },
+
+    /* after a save slot was loaded, show its conversation */
+    _chatResync: function () {
+      if (!window.ChatStore) return;
+      ChatStore.adoptHistory(App.history);
+      App._failedText = null; App._inflight = null; App._pendingResend = null;
+      var bar = document.getElementById('retry-bar'); if (bar) bar.classList.add('hidden');
+      if (ChatStore.hasConversation()) App._renderLog();
+      else { App._clearChat(); App.greet(); }
     },
 
     greet: function () {
@@ -1515,7 +1693,12 @@
       }
       var isRetry = App._failedText === text;
       App._failedText = null;
-      if (!isRetry) App._addUserMsg(text);
+      if (!isRetry) {
+        App._autoTries = {};
+        App._addUserMsg(text);
+        if (window.ChatStore) ChatStore.logUser(text);
+      }
+      if (App._pendingResend && App._pendingResend !== text) App._pendingResend = null;
       App._lastText = text;
       var retryBar = document.getElementById('retry-bar');
       if (retryBar) retryBar.classList.add('hidden');
@@ -1524,6 +1707,10 @@
       App.showTyping();
       Welcome.mark('talk');
       var turnEpoch = (window.Turn && Turn.beginTurn) ? Turn.beginTurn('say') : null;
+      var reqStart = Date.now();
+      App._inflight = { text: text, startedAt: reqStart, id: reqStart + ':' + String(turnEpoch) };
+      if (window.ChatStore) ChatStore.setPending({ text: text, at: reqStart });
+      App._wakeHold(true);
       
       /* 本轮用户说的话作为长期记忆的相关度线索（cue），
          并把这一轮记进待归纳队列（攒够 PENDING_MAX 自动归纳一次）。 */
@@ -1540,6 +1727,7 @@
       })
         .then(function (reply) {
           if (!App._turnCurrent(turnEpoch)) return;
+          App._inflight = null; App._wakeHold(false); App._autoTries = {};
           App.speaking = false;
           if (window.Turn && Turn.finishTurn) Turn.finishTurn();
           document.getElementById('btn-send').disabled = false;
@@ -1563,7 +1751,10 @@
             role: 'assistant',
             content: Api.formatHistoryReply(reply.text)
           });
-          App._sayReply(reply, turnEpoch);
+          /* saved first: even if the player leaves right now, the answer is kept */
+          if (window.ChatStore) ChatStore.completeTurn(reply.text, App.history);
+          if (document.hidden) App._showReplyInstant(reply);
+          else App._sayReply(reply, turnEpoch);
           
           if (window.LongTerm) {
             try { LongTerm.note('assistant', reply.text); } catch (e) {}
@@ -1572,8 +1763,18 @@
           Quests.render(document.getElementById('quest-list'), {});
         })
         .catch(function (e) {
-          if (e && e.stale) return;
+          /* a stale error from a turn that is still current = the request was cut
+             from outside (the OS killing the connection), not replaced by a newer turn */
           if (!App._turnCurrent(turnEpoch)) return;
+          var cutOutside = !!(e && e.stale);
+          var kindEarly = cutOutside ? 'net' : App._failKind(e);
+          if ((kindEarly === 'net' || kindEarly === 'timeout') &&
+              (cutOutside || App._interruptedSince(reqStart)) && App._canAutoRetry(text)) {
+            App._scheduleResend(text);
+            return;
+          }
+          App._inflight = null; App._wakeHold(false);
+          if (window.ChatStore) ChatStore.failPending();
           App.speaking = false;
           if (window.Turn && Turn.finishTurn) Turn.finishTurn();
           document.getElementById('btn-send').disabled = false;
@@ -2085,7 +2286,7 @@
           days.appendChild(chips);
           var hint = document.createElement('div');
           hint.className = 'hint';
-          hint.textContent = I18n.t('alarm.everyday') + ' — ' + (I18n.lang === 'en' ? 'leave all off' : (I18n.lang === 'ja' ? '未選択で毎日' : '全不选即每天'));
+          hint.textContent = I18n.t('alarm.everyday') + ' — ' + I18n.tc('alarm.everydayHint', 'leave all off');
           days.appendChild(hint);
           body.appendChild(days);
 
@@ -2429,6 +2630,11 @@
       var input = document.createElement(opts.multi ? 'textarea' : 'input');
       if (!opts.multi) input.type = opts.password ? 'password' : (opts.type || 'text');
       input.value = value == null ? '' : value;
+      if (opts.disabled) {
+        input.disabled = true; input.readOnly = true;
+        input.setAttribute('aria-disabled', 'true');
+        d.classList.add('locked');
+      }
       var suggestions = opts.suggestions || [];
       if (opts.list || suggestions.length) {
         var listId = opts.list || ('dl-' + String(labelKey || 'field').replace(/\W+/g, ''));

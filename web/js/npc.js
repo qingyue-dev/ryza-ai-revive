@@ -187,7 +187,7 @@
         var sc = scoreOf(n, st, day);
         if (sc > Npc.MIN_SCORE) {
           out.push({
-            id: n.id, name: nameOf(n.id, n.name), note: n.note || '',
+            id: n.id, name: nameOf(n.id, n.name), note: (window.World && World.npcNote) ? World.npcNote(n) : (n.note || ''),
             score: sc, order: n.resolveOrder || 999
           });
         }

@@ -9,8 +9,8 @@ chat). `config/*` is served as 404 so provider files are not loaded from the APK
 ## Build the APK (no Gradle needed)
 
 ```powershell
-powershell -File scripts/setup_android_tools.ps1   # one-time: JDK17 + SDK 34
-powershell -File scripts/build_apk.ps1             # -> output\android\RyzaChat-<ver>.apk
+powershell -File scripts/setup_android_tools.ps1 # one-time: JDK17 + SDK 34
+powershell -File scripts/build_apk.ps1 # -> output\android\RyzaChat-<ver>.apk
 ```
 
 Pipeline: `aapt2 compile/link` → `javac --release 11` → `d8` →

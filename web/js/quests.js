@@ -726,7 +726,7 @@
         } else if (Welcome.groupClaimed(g)) {
           var tag = document.createElement('div');
           tag.className = 'wm-claimed';
-          tag.textContent = '受け取り済み';
+          tag.textContent = I18n.tc('wm.claimed', 'Claimed');
           box.appendChild(tag);
         }
         list.appendChild(box);

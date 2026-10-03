@@ -227,7 +227,7 @@
       Object.keys(loc).forEach(function (id) {
         if (loc[id] !== stageId) return;
         var n = byId[id];
-        if (n) out.push({ id: n.id, name: World.npcName(n.id), note: n.note || '' });
+        if (n) out.push({ id: n.id, name: World.npcName(n.id), note: World.npcNote(n) });
       });
       return out.sort(function (a, b) { return a.name.localeCompare(b.name, 'ja'); });
     },
@@ -243,7 +243,7 @@
         if (seen[id]) return;
         seen[id] = true;
         var n = byId[id];
-        if (n) out.push({ id: n.id, name: World.npcName(n.id), note: n.note || '', stageId: loc[id], stage: info.stage });
+        if (n) out.push({ id: n.id, name: World.npcName(n.id), note: World.npcNote(n), stageId: loc[id], stage: World.placeLabel(loc[id], info.stage) });
       });
       return out;
     },
@@ -252,8 +252,8 @@
       var out = {};
       World.fields(areaId).forEach(function (f) {
         World.npcsInField(f.id, day).forEach(function (n) {
-          if (!out[n.id]) out[n.id] = { id: n.id, name: n.name, note: n.note || '', where: [] };
-          out[n.id].where.push(f.name + '（' + n.stage + '）');
+          if (!out[n.id]) out[n.id] = { id: n.id, name: n.name, note: World.npcNote(n), where: [] };
+          out[n.id].where.push(World.placeLabel(f.id, f.name) + ' (' + n.stage + ')');
         });
       });
       return Object.keys(out).map(function (k) { return out[k]; })
@@ -266,6 +266,10 @@
       return 'assets/images/chara_icons/' + (aliases[key] || key) + '.png';
     },
 
+    npcNote: function (n) {
+      var base = (n && n.note) || '';
+      return (window.I18n && I18n.npcNote) ? I18n.npcNote(n && n.id, base) : base;
+    },
     npcName: function (npcId) {
       var hit = ((World.npcs && World.npcs.npcs) || []).filter(function (n) { return n.id === npcId; })[0];
       var base = hit ? hit.name : npcId;
@@ -273,7 +277,10 @@
       return I18n.tc('npc.' + String(npcId).replace(/^npc_/, ''), base);
     },
     placeLabel: function (id, base) {
-      return (window.I18n && I18n.tc) ? I18n.tc('place.' + id, base) : base;
+      if (!(window.I18n && I18n.tc)) return base;
+      var v = I18n.tc('place.' + id, base);
+      if (v === base && I18n.placeEn) { var en = I18n.placeEn(base); if (en) return en; }
+      return v;
     },
 
     TALK_ALIASES: {

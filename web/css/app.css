@@ -254,7 +254,8 @@ body.side-open #quick-btns{opacity:0;pointer-events:none;transition:opacity .15s
   padding:0 6px 0 16px;transition:.15s}
 .input-pill:focus-within{border-color:var(--gold);background:rgba(30,21,26,.95)}
 #input{flex:1;min-width:0;background:none;border:0;padding:12px 0;font-size:15px;
-  outline:none;user-select:text}
+  outline:none;user-select:text;resize:none;display:block;line-height:1.3;height:auto;max-height:118px;overflow-y:auto;scrollbar-width:none}
+#input::-webkit-scrollbar{display:none}
 #btn-newtalk{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;flex:0 0 auto}
 #btn-newtalk img{width:17px;height:17px;filter:invert(80%) sepia(30%) saturate(500%) hue-rotate(330deg)}
 
@@ -766,3 +767,50 @@ input[type=range]{width:100%;accent-color:var(--gold)}
 .md-drawer-li{border-left:3px solid #c084fc!important}
 .md-drawer-li:hover{background:rgba(192,132,252,.07)!important}
 .md-drawer-ico{width:20px;height:20px;border-radius:50%;background:#c084fc;color:#1a1107;font-size:8px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+
+.field.locked input{opacity:.65;cursor:not-allowed;border-style:dashed}
+
+/* 彩蛋 only lives in the drawer, not in the side menu */
+#sm-easter{display:none!important}
+
+/* ---- live changelog: unread dots, sheet block, update dialog ---- */
+.cl-dot{width:8px;height:8px;border-radius:50%;background:#ff5c5c;display:inline-block;margin-left:auto;box-shadow:0 0 6px rgba(255,92,92,.7)}
+.cl-dot.hidden{display:none}
+#sm-changelog .round .cl-dot{position:absolute;top:2px;right:2px;margin:0}
+.clv-box{margin:0 0 8px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:rgba(24,17,21,.6)}
+.clv-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.clv-title{font-size:12px;font-weight:700;color:var(--gold)}
+.clv-btns{display:flex;gap:6px}
+.clv-mini{font-size:11px;padding:4px 9px;border-radius:99px;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+.clv-status{font-size:10.5px;color:var(--dim);margin:4px 0;min-height:13px}
+.clv-list{max-height:22vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.clv-row{border-top:1px solid var(--line);padding:6px 0}
+.clv-rtop{display:flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer}
+.clv-rtop b{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.clv-udot{width:7px;height:7px;border-radius:50%;background:transparent;border:1px solid var(--dim);flex:0 0 auto}
+.clv-row.unread .clv-udot{background:#ff5c5c;border-color:#ff5c5c}
+.clv-row.unread .clv-rtop b{color:var(--ink)}
+.clv-row:not(.unread) .clv-rtop b{color:var(--dim);font-weight:400}
+.clv-new{font-style:normal;font-size:9px;font-weight:700;padding:1px 6px;border-radius:99px;background:#ff5c5c;color:#fff}
+.clv-date{font-size:10px;color:var(--dim);flex:0 0 auto}
+.clv-more{margin-top:6px}.clv-more.hidden{display:none}
+.clv-h{font-size:12px;font-weight:700;color:var(--gold);margin:8px 0 2px}
+.clv-li,.clv-p{font-size:12px;line-height:1.5;color:var(--ink);word-break:break-word}
+.clv-li{padding-left:2px}
+.clv-hr{height:1px;background:var(--line);margin:6px 0}
+.clv-overlay{position:absolute;inset:0;z-index:260;background:rgba(8,6,10,.72);display:flex;align-items:center;justify-content:center;padding:18px}
+.clv-card{width:100%;max-width:380px;max-height:86%;display:flex;flex-direction:column;gap:10px;text-align:left;
+  background:rgba(20,12,16,.97);border:1px solid rgba(232,180,92,.35);border-radius:18px;padding:16px}
+.clv-dh{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.clv-dtitle{font-size:16px;font-weight:700;color:var(--gold)}
+.clv-count{font-size:10.5px;padding:2px 8px;border-radius:99px;background:#ff5c5c;color:#fff}
+.clv-scroll{overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:60px;flex:1 1 auto}
+.clv-blk{padding:8px 0;border-top:1px solid var(--line)}.clv-blk:first-child{border-top:0}
+.clv-btop{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13.5px}
+.clv-check{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink)}
+.clv-check input{accent-color:var(--gold);width:16px;height:16px;flex:0 0 auto}
+.clv-actions{display:flex;gap:8px}
+.clv-actions .btn{flex:1 1 0;min-width:0;padding:10px 6px;font-size:12.5px}
+
+/* changelog sheet shows only the single newest entry (live block); old 30-commit list stays hidden */
+#sheet-changelog #cl-body{display:none}
