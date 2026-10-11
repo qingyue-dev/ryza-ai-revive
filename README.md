@@ -6,7 +6,7 @@ The application is a static HTML/JavaScript runtime. Thin native hosts load the 
 
 面向实时二维立绘的本地对话客户端。应用核为静态 HTML/JavaScript；Windows（Electron）与 Android（WebView）仅提供宿主。语言模型与语音合成在运行时接入操作者配置的 HTTP API。
 
-Version is pinned in `config/version.json` (single source of truth for the exe and the APK); releases are at [GitHub Releases](https://github.com/zeroa234/ryza-ai-revive/releases). License: [MIT](LICENSE).
+Version is pinned in `config/version.json` (single source of truth for the APK); releases are at [GitHub Releases](https://github.com/qingyue-dev/ryza-ai-revive/releases). License: [MIT](LICENSE).
 
 ---
 
@@ -51,7 +51,7 @@ Structural tables (JSON, atlas, SVG) live in `web/assets/` and are versioned wit
 结构表随仓库版本管理；体积较大的栅格图、音频与骨骼二进制在完整运行或打包前本地恢复：
 
 ```powershell
-python scripts/restore_media.py path\to\RyzaChat-1.2.25.apk
+python scripts/restore_media.py path\to\RyzaChat-1.2.26.apk
 python scripts/restore_media.py path\to\win-unpacked\resources\web
 ```
 

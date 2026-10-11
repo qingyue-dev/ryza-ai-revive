@@ -6,7 +6,7 @@
   var KEY = 'ryza.longterm.v1';
   var ENTRY_LIMIT = 40;
   var DIGEST_MAX = 1600;
-  var DIGEST_PROMPT_MAX = 800;l
+  var DIGEST_PROMPT_MAX = 800;
   var SELECT_LIMIT = 12;
   var SUMMARY_MAX = 120;
   var KEYWORD_MAX = 8;

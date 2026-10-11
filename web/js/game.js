@@ -228,6 +228,7 @@
       return which === 'ryza' ? Game.s.ryza_inventory : Game.s.inventory;
     },
     bagCap: function (which) {
+      try { if (Config && Config.section('app').cheatInv) return 9999; } catch(e) {}
       return BAGS[which === 'ryza' ? Game.s.bagRyza : Game.s.bagYou] || BAGS.normal;
     },
     bagUsed: function (which) { return Game.bagList(which).length; },
@@ -238,7 +239,8 @@
       var slot = null;
       list.forEach(function (x) { if (x.id === id) slot = x; });
       if (slot) {
-        slot.count = Math.min(99, slot.count + (count || 1));
+        var _maxStack = 99; try { if (Config && Config.section('app').cheatInv) _maxStack = 9999; } catch(e) {}
+        slot.count = Math.min(_maxStack, slot.count + (count || 1));
       } else {
         if (list.length >= Game.bagCap(which)) {
           if (list.length) list[0].count = Math.min(99, list[0].count + (count || 1));

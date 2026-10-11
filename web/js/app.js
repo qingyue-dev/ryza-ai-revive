@@ -457,6 +457,7 @@
           if (act === 'toggleChara') { App._toggleChara(); return; }
           if (act === 'fullscreen') { open(false); App._toggleFullscreen(); return; }
           if (act === 'changelog') { open(false); App._openChangelog(); return; }
+          if (act === 'tutorial')  { open(false); if (window.GuideTutorial) GuideTutorial.openTutorial(); return; }
           if (act === 'modder') { open(false); App._openModder(); return; }
           document.querySelectorAll('.drawer-list li').forEach(function (x) {
             x.classList.remove('active');
@@ -548,8 +549,7 @@
       document.getElementById('sm-full').onclick = sideClose(function () { App._toggleFullscreen(); });
       document.getElementById('sm-chara').onclick = sideClose(function () { App._toggleChara(); });
       document.getElementById('sm-settings').onclick = sideClose(function () { App.showView('settings'); });
-      document.getElementById('sm-changelog').onclick = sideClose(function () { App._openChangelog(); });
-      document.getElementById('sm-modder').onclick = sideClose(function () { App._openModder(); });
+
       document.getElementById('sm-map').onclick = sideClose(function () { App.showView('world'); });
       var postureBtn = document.getElementById('btn-posture');
       if (postureBtn) postureBtn.onclick = function () {
@@ -690,19 +690,11 @@
       }
       var peopleBtn = document.getElementById('btn-world-people');
       if (peopleBtn) peopleBtn.onclick = function () { App._showPeople(); };
-      document.getElementById('btn-memory-clear').onclick = function () {
-        if (!confirm(I18n.t('memory.clearLogAsk'))) return;
-        App.memory = []; App.saveMemory(); App.renderMemory();
-      };
-      var addBtn = document.getElementById('btn-memory-add');
-      if (addBtn) addBtn.onclick = function () { App._editMemory(null); };
-      var flushBtn = document.getElementById('btn-memory-flush');
-      if (flushBtn) flushBtn.onclick = function () {
-        if (!window.Memory) return;
-        Memory.flushNow().then(function () {
-          App.toast(I18n.t('toast.memFlushed'));
-          App.renderMemory();
-        });
+      var histClearBtn = document.getElementById('btn-history-clear');
+      if (histClearBtn) histClearBtn.onclick = function () {
+        if (!confirm(I18n.t('history.clearAsk'))) return;
+        if (window.HistoryStore) HistoryStore.clear();
+        App.renderHistory();
       };
       document.getElementById('btn-settings-reset').onclick = function () {
         if (confirm('Reset all settings to default?')) {
@@ -1356,29 +1348,43 @@
         };
         root.appendChild(row);
       });
+      var _invUnlim = false;
+      try { _invUnlim = !!(Config && Config.section('app').cheatInv); } catch(e) {}
       var cap = document.getElementById('inv-cap');
-      if (cap) cap.textContent = I18n.t('inv.cap')
-        .replace('{u}', String(Game.bagUsed(which)))
-        .replace('{c}', String(Game.bagCap(which)));
+      if (cap) {
+        if (_invUnlim) {
+          cap.textContent = I18n.t('inv.cap')
+            .replace('{u}', String(Game.bagUsed(which)))
+            .replace('{c}', '∞');
+        } else {
+          cap.textContent = I18n.t('inv.cap')
+            .replace('{u}', String(Game.bagUsed(which)))
+            .replace('{c}', String(Game.bagCap(which)));
+        }
+      }
       var up = document.getElementById('btn-bag-up');
       if (up) {
-        var order = Game.BAG_ORDER;
-        var cur = which === 'ryza' ? Game.s.bagRyza : Game.s.bagYou;
-        var idx = order.indexOf(cur);
-        var next = idx >= 0 && idx < order.length - 1 ? order[idx + 1] : null;
-        var price = next ? (Game.BAG_UPGRADE_COST[next] || 0) : 0;
-        up.classList.toggle('hidden', !next);
-        if (next) {
-          up.textContent = I18n.t('inv.upgrade').replace('{p}', String(price));
-          up.onclick = function () {
-            if (Game.upgradeBag(which)) {
-              App.toast(I18n.t('inv.upgraded'));
-              if (window.Sound) Sound.se('quest_clear');
-            } else {
-              App.toast(I18n.t('inv.tooSmall'), true);
-            }
-            App.renderInv();
-          };
+        if (_invUnlim) {
+          up.classList.add('hidden');
+        } else {
+          var order = Game.BAG_ORDER;
+          var cur = which === 'ryza' ? Game.s.bagRyza : Game.s.bagYou;
+          var idx = order.indexOf(cur);
+          var next = idx >= 0 && idx < order.length - 1 ? order[idx + 1] : null;
+          var price = next ? (Game.BAG_UPGRADE_COST[next] || 0) : 0;
+          up.classList.toggle('hidden', !next);
+          if (next) {
+            up.textContent = I18n.t('inv.upgrade').replace('{p}', String(price));
+            up.onclick = function () {
+              if (Game.upgradeBag(which)) {
+                App.toast(I18n.t('inv.upgraded'));
+                if (window.Sound) Sound.se('quest_clear');
+              } else {
+                App.toast(I18n.t('inv.tooSmall'), true);
+              }
+              App.renderInv();
+            };
+          }
         }
       }
     },
@@ -1518,6 +1524,8 @@
           body.appendChild(p);
         },
         onOk: function () {
+          /* Save current conversation to history before wiping */
+          App._saveCurrentToHistory();
           App.history = [];
           /* drop the saved conversation and anything still in flight */
           App._inflight = null; App._pendingResend = null; App._autoTries = {};
@@ -1753,6 +1761,8 @@
           });
           /* saved first: even if the player leaves right now, the answer is kept */
           if (window.ChatStore) ChatStore.completeTurn(reply.text, App.history);
+          /* Update history entry in realtime so it's always visible */
+          App._updateHistoryRealtime();
           if (document.hidden) App._showReplyInstant(reply);
           else App._sayReply(reply, turnEpoch);
           
@@ -2066,7 +2076,24 @@
       row.className = 'msg ' + role;
       var bub = document.createElement('div');
       bub.className = 'bubble';
-      bub.textContent = text || '';
+      /* For user messages: one <br> per newline (respect what user typed exactly).
+         For AI messages: double <br> between paragraphs for readability. */
+      var str = text || '';
+      if (str.indexOf('\n') !== -1) {
+        var lines = str.split('\n');
+        lines.forEach(function (line, i) {
+          if (i > 0) {
+            bub.appendChild(document.createElement('br'));
+            /* AI only: add a blank line between non-empty paragraphs */
+            if (role !== 'user' && lines[i - 1].trim()) {
+              bub.appendChild(document.createElement('br'));
+            }
+          }
+          bub.appendChild(document.createTextNode(line));
+        });
+      } else {
+        bub.textContent = str;
+      }
       row.appendChild(bub);
       list.appendChild(row);
       /* keep the DOM light on very long sessions */
@@ -2075,6 +2102,24 @@
       return bub;
     },
     _addUserMsg: function (text) { App._addMsg('user', text); },
+
+    /* Set bubble text preserving real newlines as paragraph breaks */
+    _setBubbleText: function (el, text) {
+      el.innerHTML = '';
+      var str = text || '';
+      if (str.indexOf('\n') !== -1) {
+        var lines = str.split('\n');
+        lines.forEach(function (line, i) {
+          if (i > 0) {
+            el.appendChild(document.createElement('br'));
+            if (lines[i - 1].trim()) el.appendChild(document.createElement('br'));
+          }
+          el.appendChild(document.createTextNode(line));
+        });
+      } else {
+        el.textContent = str;
+      }
+    },
     /* the AI row currently being filled: reuse the typing-dots row if there is one */
     _takeAi: function () {
       var el = App._curAi;
@@ -2107,7 +2152,10 @@
         return;
       }
       var b = App._takeAi();
-      if (b) { b.classList.remove('typing', 'speaking'); b.textContent = text; }
+      if (b) {
+        b.classList.remove('typing', 'speaking');
+        App._setBubbleText(b, text);
+      }
       App._scrollLog(true);
       App._inputHint(false);
     },
@@ -2138,6 +2186,8 @@
         if (i >= text.length) {
           b.classList.remove('speaking');
           if (vig) vig.classList.remove('talk-glow');
+          /* Re-render with newlines preserved after typing finishes */
+          App._setBubbleText(b, text);
           App._inputHint(false);
           done && done();
           return;
@@ -2322,7 +2372,7 @@
       });
     },
 
-    /* ------------------------------------------------------------ memory */
+    /* ------------------------------------------------------------ memory (internal AI context only) */
     remember: function (who, text) {
       App.memory.push({ who: who, text: text, at: Date.now() });
       if (App.memory.length > 400) App.memory = App.memory.slice(-400);
@@ -2331,103 +2381,144 @@
     saveMemory: function () {
       try { localStorage.setItem(MEM_KEY, JSON.stringify(App.memory)); } catch (e) {}
     },
-    renderMemory: function () {
-      var root = document.getElementById('memory-list');
+    /* renderMemory kept as no-op alias; real UI uses renderHistory */
+    renderMemory: function () { App.renderHistory(); },
+
+    /* ------------------------------------------------------------ history panel */
+    renderHistory: function () {
+      var root = document.getElementById('history-list');
       if (!root) return;
       root.innerHTML = '';
       var T = function (k) { return I18n.t(k); };
-      if (window.Memory) {
-        var bag = Memory.list();
-        var pend = Memory.pendingTurns();
-        if (pend) {
-          var p = document.createElement('div');
-          p.className = 'hint';
-          p.textContent = I18n.tf('memory.pending', '未总结 {n} 轮', { n: pend });
-          root.appendChild(p);
+      var sessions = window.HistoryStore ? HistoryStore.list() : [];
+      if (!sessions.length) {
+        root.innerHTML = '<div class="empty">' + T('history.empty') + '</div>';
+        return;
+      }
+      sessions.forEach(function (s) {
+        var el = document.createElement('div');
+        el.className = 'card history-card';
+        /* Title row */
+        var titleEl = document.createElement('div');
+        titleEl.className = 'card-title';
+        var tag = document.createElement('span');
+        tag.className = 'tag';
+        /* Use i18n display title (auto-translates to current UI language) */
+        tag.textContent = window.HistoryStore ? HistoryStore.displayTitle(s) : (s.title || s.mode || 'Chat');
+        titleEl.appendChild(tag);
+        el.appendChild(titleEl);
+        /* Description */
+        var desc = document.createElement('div');
+        desc.className = 'card-sub t-text';
+        var isActive = window.HistoryStore && HistoryStore.getActiveId() === s.id;
+        if (!s.log || !s.log.length) {
+          desc.textContent = T('history.noChat');
+        } else if (isActive && !s.description) {
+          desc.textContent = T('history.summarizing');
+        } else {
+          desc.textContent = s.description || T('history.summarizing');
         }
-        function section(title, items) {
-          if (!items.length) return;
-          var h = document.createElement('div');
-          h.className = 'mem-layer';
-          h.textContent = title;
-          root.appendChild(h);
-          items.slice().reverse().forEach(function (c) {
-            var el = document.createElement('div');
-            el.className = 'card';
-            el.innerHTML = '<div class="card-sub t-text"></div>' +
-              '<div class="card-acts">' +
-              '<button type="button" class="mini-btn t-edit"></button>' +
-              '<button type="button" class="mini-btn t-del"></button></div>';
-            el.querySelector('.t-text').textContent = c.text;
-            el.querySelector('.t-edit').textContent = T('memory.edit');
-            el.querySelector('.t-del').textContent = T('memory.del');
-            el.querySelector('.t-edit').onclick = function () { App._editMemory(c.id); };
-            el.querySelector('.t-del').onclick = function () {
-              if (!confirm(T('memory.delAsk'))) return;
-              Memory.remove(c.id);
-              App.renderMemory();
-            };
-            root.appendChild(el);
-          });
-        }
-        section(T('memory.summaries'), bag.summaries);
-        section(T('memory.sessions'), bag.sessions);
-      }
-      if (App.memory && App.memory.length) {
-        var h2 = document.createElement('div');
-        h2.className = 'mem-layer';
-        h2.textContent = T('memory.log');
-        root.appendChild(h2);
-        App.memory.slice().reverse().slice(0, 40).forEach(function (m) {
-          var el = document.createElement('div');
-          el.className = 'card';
-          el.innerHTML = '<div class="card-title"><span class="tag' +
-            (m.who === 'ryza' ? '' : ' leaf') + ' t-who"></span></div>' +
-            '<div class="card-sub t-text"></div>';
-          el.querySelector('.t-who').textContent = m.who === 'ryza' ? 'Ryza' : 'You';
-          el.querySelector('.t-text').textContent = m.text;
-          root.appendChild(el);
-        });
-      }
-      if (!root.firstChild) {
-        root.innerHTML = '<div class="empty">' + T('memory.empty') + '</div>';
-      }
+        el.appendChild(desc);
+        /* Action buttons */
+        var acts = document.createElement('div');
+        acts.className = 'card-acts';
+        var contBtn = document.createElement('button');
+        contBtn.type = 'button';
+        contBtn.className = 'mini-btn btn-primary';
+        contBtn.textContent = T('history.continue');
+        contBtn.onclick = (function (session) {
+          return function () { App._continueHistory(session); };
+        })(s);
+        var delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'mini-btn';
+        delBtn.textContent = T('history.delete');
+        delBtn.onclick = (function (id) {
+          return function () {
+            App.openModal({
+              title: T('history.delete'),
+              okLabel: T('history.delete'),
+              build: function (body) {
+                var p = document.createElement('p');
+                p.className = 'onb-sub';
+                p.textContent = T('history.deleteAsk');
+                body.appendChild(p);
+              },
+              onOk: function () {
+                if (window.HistoryStore) HistoryStore.remove(id);
+                App.renderHistory();
+              }
+            });
+          };
+        })(s.id);
+        acts.appendChild(contBtn);
+        acts.appendChild(delBtn);
+        el.appendChild(acts);
+        root.appendChild(el);
+      });
     },
 
-    _editMemory: function (id) {
-      var existing = id && window.Memory ? Memory.get(id) : null;
-      App.openModal({
-        title: existing ? I18n.t('memory.edit') : I18n.t('memory.add'),
-        okLabel: I18n.t('form.ok'),
-        build: function (body) {
-          var ta = document.createElement('textarea');
-          ta.id = 'mem-edit-text';
-          ta.rows = 6;
-          ta.value = existing ? existing.text : '';
-          body.appendChild(ta);
-          if (!existing) {
-            var sel = document.createElement('select');
-            sel.id = 'mem-edit-layer';
-            [['session', I18n.t('memory.sessions')],
-             ['summary', I18n.t('memory.summaries')]].forEach(function (p) {
-              var o = document.createElement('option');
-              o.value = p[0]; o.textContent = p[1];
-              sel.appendChild(o);
-            });
-            body.appendChild(sel);
-          }
-        },
-        onOk: function (body) {
-          var text = (body.querySelector('#mem-edit-text') || {}).value || '';
-          if (!window.Memory) return;
-          if (existing) Memory.update(existing.id, text);
-          else {
-            var layer = (body.querySelector('#mem-edit-layer') || {}).value || 'session';
-            Memory.add(text, layer);
-          }
-          App.renderMemory();
+    /* Load a history session into the chat panel */
+    _continueHistory: function (session) {
+      if (!session || !session.log) return;
+      /* Bump the session's timestamp so it rises to the top */
+      if (window.HistoryStore) {
+        HistoryStore.touch(session.id);
+        /* Track this as the active session for realtime updates */
+        HistoryStore.setActiveId(session.id);
+      }
+      /* Restore the conversation */
+      App.history = (session.history || []).slice();
+      App._inflight = null; App._pendingResend = null; App._autoTries = {};
+      App._failedText = null; App._lastText = '';
+      App._wakeHold && App._wakeHold(false);
+      App.speaking = false;
+      var rbar = document.getElementById('retry-bar'); if (rbar) rbar.classList.add('hidden');
+      if (window.ChatStore) {
+        /* Adopt will rebuild the log from history AND set ChatStore state */
+        ChatStore.adoptHistory(App.history);
+        /* Override with the full saved display log for nicer restoration */
+        if (session.log && session.log.length) {
+          ChatStore._overrideLog && ChatStore._overrideLog(session.log);
         }
+      }
+      App._clearChat();
+      /* Re-render from the saved display log */
+      var log = session.log || [];
+      log.forEach(function (m) {
+        if (m.r === 'u') App._addMsg('user', m.t);
+        else App._renderSavedReply(m.t);
       });
+      App._scrollLog(true);
+      App.showView('talk');
+    },
+
+    /* Save current chat to history before wiping it */
+    _saveCurrentToHistory: function () {
+      if (!window.HistoryStore || !window.ChatStore) return;
+      var log = ChatStore.log();
+      if (!log || !log.length) return;
+      var st = (window.Config && Config.section('state')) || {};
+      /* Use saveOrUpdate so we update the realtime entry if it exists */
+      HistoryStore.saveOrUpdate(log, App.history, st.mode || 'chat');
+      /* Clear the active id — next new chat will get its own entry */
+      HistoryStore.clearActive();
+      /* Refresh history panel if it's open */
+      if (document.getElementById('history-list')) App.renderHistory();
+      /* Re-render async after description is ready */
+      HistoryStore.onDescReady = function () { App.renderHistory(); };
+    },
+
+    /* Realtime history update — called after each completed AI turn */
+    _updateHistoryRealtime: function () {
+      if (!window.HistoryStore || !window.ChatStore) return;
+      var log = ChatStore.log();
+      if (!log || !log.length) return;
+      var st = (window.Config && Config.section('state')) || {};
+      HistoryStore.saveOrUpdate(log, App.history, st.mode || 'chat');
+      HistoryStore.onDescReady = function () {
+        if (document.getElementById('history-list')) App.renderHistory();
+      };
     },
 
     _llmModels: [],

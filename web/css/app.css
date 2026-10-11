@@ -311,7 +311,7 @@ body.side-open #quick-btns{opacity:0;pointer-events:none;transition:opacity .15s
 .card{background:rgba(26,18,22,.82);border:1px solid var(--line);border-radius:var(--radius);padding:13px 15px}
 .card.done{opacity:.55}
 .card-title{font-weight:600;margin-bottom:4px;display:flex;gap:8px;align-items:center}
-.card-sub{font-size:12.5px;color:var(--dim);line-height:1.6}
+.card-sub{font-size:12.5px;color:var(--dim);line-height:1.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .card-acts{margin-top:9px;display:flex;gap:8px}
 .mem-layer{font-size:12px;color:var(--dim);padding:6px 2px 0;letter-spacing:.04em}
 .tag{font-size:10.5px;padding:2px 8px;border-radius:999px;background:rgba(232,180,92,.16);
@@ -764,8 +764,6 @@ input[type=range]{width:100%;accent-color:var(--gold)}
 /* 侧边栏按钮里的中文图标 */
 .md-side-ico{background:var(--gold)!important;color:#1a1107!important;font-size:9px!important;font-weight:700!important;letter-spacing:0!important;display:flex!important;align-items:center!important;justify-content:center!important}
 /* Drawer 列表里的改版者条目 */
-.md-drawer-li{border-left:3px solid #c084fc!important}
-.md-drawer-li:hover{background:rgba(192,132,252,.07)!important}
 .md-drawer-ico{width:20px;height:20px;border-radius:50%;background:#c084fc;color:#1a1107;font-size:8px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
 
 .field.locked input{opacity:.65;cursor:not-allowed;border-style:dashed}
@@ -814,3 +812,32 @@ input[type=range]{width:100%;accent-color:var(--gold)}
 
 /* changelog sheet shows only the single newest entry (live block); old 30-commit list stays hidden */
 #sheet-changelog #cl-body{display:none}
+
+/* ---- Chat History panel ---- */
+.history-card{margin:14px}
+.history-card .card-title .tag{font-size:12px;padding:3px 10px;background:rgba(100,140,220,.18);color:#a0b8f0}
+.mini-btn.btn-primary{background:rgba(232,180,92,.22);color:var(--gold);border-color:rgba(232,180,92,.4)}
+.mini-btn.btn-primary:active{background:rgba(232,180,92,.35)}
+#history-list .empty{padding:32px 12px;text-align:center;color:var(--dim);font-size:13px}
+
+/* Preserve newlines in chat bubbles */
+.bubble{white-space:pre-wrap;word-break:break-word}
+
+/* ── Tutorial sheet ─────────────────────────────────────── */
+#sheet-tutorial{max-height:85vh;overflow-y:auto;padding-bottom:calc(var(--safe-b) + 20px)}
+.tutorial-body{padding:0 0 8px}
+.tut-item{border:1px solid var(--line);border-radius:10px;margin-bottom:10px;overflow:hidden;transition:border-color .2s}
+.tut-item.tut-open{border-color:rgba(232,180,92,.55)}
+.tut-item.tut-locked{opacity:.5}
+.tut-hdr{display:flex;align-items:center;gap:10px;width:100%;padding:13px 14px;background:none;text-align:left;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;border:none}
+.tut-item.tut-locked .tut-hdr{cursor:default}
+.tut-lock-ico{font-size:16px;flex:0 0 auto}
+.tut-section-title{flex:1}
+.tut-chevron{flex:0 0 auto;color:var(--gold);font-size:16px}
+.tut-content{padding:0 14px 14px;border-top:1px solid var(--line)}
+.tut-body-text{font-size:13.5px;line-height:1.7;color:var(--dim);margin:12px 0 14px;white-space:pre-line}
+.tut-next-btn{width:100%;padding:11px;font-size:13.5px}
+.tut-done-wrap{margin-top:12px;text-align:center}
+.tut-done-wrap .btn{width:100%;font-size:14px;padding:14px}
+/* drawer highlight for tutorial item */
+[data-action="tutorial"].guide-highlight{background:rgba(232,180,92,.15);border-left:3px solid var(--gold)}

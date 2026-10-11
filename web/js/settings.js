@@ -444,6 +444,7 @@
         { key: 'Fs4', icon: '🍎', label: T('cheat.unlimStamina'), hint: T('cheat.unlimStaminaDesc') },
         { key: 'Fl5', icon: '⭐', label: T('cheat.maxLevel'), hint: T('cheat.maxLevelDesc') },
         { key: 'Fm6', icon: '🗺️', label: T('cheat.unlockMap'), hint: T('cheat.unlockMapDesc') },
+        { key: 'Fi8', icon: '🎒', label: T('cheat.unlimInv'), hint: T('cheat.unlimInvDesc'), inv: true },
         { key: 'Fo7', icon: '✨', label: T('cheat.others'), hint: T('cheat.othersDesc') }
       ];
 
@@ -461,7 +462,7 @@
         badge.textContent = _masterOn ? '✔' : '✕';
         row.appendChild(badge);
         _subPanel.appendChild(row);
-        _subBadges.push({ badge: badge, row: row, key: sub.key });
+        _subBadges.push({ badge: badge, row: row, key: sub.key, inv: !!sub.inv });
       });
 
       /* 主开关关闭时才显示的锁定提示 */
@@ -478,7 +479,12 @@
           ref.row.classList.toggle('cheat-sub-disabled', !on);
           ref.badge.className = on ? 'cheat-badge cheat-badge--on' : 'cheat-badge cheat-badge--off';
           ref.badge.textContent = on ? '✔' : '✕';
-          if (_CE) _CE.Σa(ref.key, on);
+          if (ref.inv) {
+            Config.set('app.cheatInv', on);
+            try { if (window.App && App.renderInv) App.renderInv(); } catch(e) {}
+          } else {
+            if (_CE) _CE.Σa(ref.key, on);
+          }
         });
       }
       _applyMasterState(_masterOn);

@@ -7,10 +7,10 @@ android {
     compileSdk 34
     defaultConfig {
         applicationId "com.ryza.chat"
-        minSdk 16
-        targetSdk 29
-        versionCode 29
-        versionName "1.2.25"
+        minSdk 25
+        targetSdk 34
+        versionCode 32
+        versionName "1.2.26"
     }
     buildTypes {
         release {

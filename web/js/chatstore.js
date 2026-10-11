@@ -106,6 +106,12 @@
       ChatStore.save();
     },
 
+    /* Override the display log (used when loading a history session) */
+    _overrideLog: function (log) {
+      state.log = cleanLog(log);
+      ChatStore.save();
+    },
+
     /* "New talk": everything about the running conversation is dropped */
     reset: function () {
       state = blank();

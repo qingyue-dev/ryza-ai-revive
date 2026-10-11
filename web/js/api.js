@@ -304,6 +304,20 @@
       parseTagFields(tag, dest);
       body = body.slice(end + 1).replace(/^\s+/, '');
     }
+    /* Also strip bare first-line action tags (no brackets) like:
+       "emotion:happy|attitude:agree|undress:off|stage:stage_01_001_04" */
+    var firstNl = body.indexOf('\n');
+    if (firstNl > 0) {
+      var firstLine = body.slice(0, firstNl).trim();
+      if (isMachineTag(firstLine)) {
+        parseTagFields(firstLine, dest);
+        body = body.slice(firstNl + 1).replace(/^\s+/, '');
+      }
+    } else if (firstNl === -1 && isMachineTag(body)) {
+      /* The entire reply is just a tag line with no text — clear it */
+      parseTagFields(body, dest);
+      body = '';
+    }
     var ex = extractState(body);
     return {
       emotion: dest.emotion, attitude: dest.attitude, nsfw: dest.nsfw,
